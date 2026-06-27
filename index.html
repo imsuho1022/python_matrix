@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Python Matrix Lab</title>
+<style>
+:root{
+  --bg:#0a0a0a;--green:#00ff41;--gdim:#003b00;--gmid:#00c030;
+  --blue:#00aaff;--yellow:#ffff00;--red:#ff3300;--purple:#cc00ff;
+  --panel:rgba(0,0,0,0.93);--mobBarH:54px;--topbarH:38px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);overflow:hidden;height:100vh;height:100dvh;font-family:'Courier New',monospace;color:var(--green);}
+canvas{display:block;}
+#rainCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#gameCanvas{position:fixed;top:38px;left:0;z-index:1;pointer-events:none;}
+
+/* TOP BAR */
+#topbar{
+  position:fixed;top:0;left:0;right:0;z-index:20;height:38px;
+  background:rgba(0,0,0,0.97);border-bottom:1px solid var(--gdim);
+  display:flex;align-items:center;
+}
+.logo{padding:0 14px;font-weight:bold;font-size:13px;letter-spacing:2px;
+  border-right:1px solid var(--gdim);height:100%;display:flex;align-items:center;white-space:nowrap;}
+.tab-btn{
+  padding:0 14px;height:100%;border:none;background:transparent;
+  color:var(--gdim);font-family:'Courier New',monospace;font-size:11px;
+  cursor:pointer;border-right:1px solid var(--gdim);transition:all .15s;
+  display:flex;align-items:center;white-space:nowrap;
+}
+.tab-btn:hover{background:rgba(0,255,65,0.06);color:var(--gmid);}
+.tab-btn.active{background:rgba(0,255,65,0.11);color:var(--green);border-bottom:2px solid var(--green);}
+.spacer{flex:1;}
+.topnote{padding:0 12px;font-size:10px;color:var(--gdim);}
+
+/* LAYOUT */
+#layout{position:fixed;top:38px;left:0;right:0;bottom:0;z-index:5;display:flex;}
+#gamePanel{flex:1;position:relative;min-width:0;overflow:hidden;}
+#keysHint{
+  position:absolute;bottom:10px;left:10px;z-index:3;pointer-events:none;
+  background:rgba(0,0,0,0.72);border:1px solid var(--gdim);border-radius:3px;
+  padding:6px 10px;font-size:10px;color:var(--gdim);line-height:1.9;
+}
+#keysHint b{color:var(--green);}
+
+/* SPEECH BUBBLE */
+#bubble{
+  position:absolute;left:0;top:0;z-index:4;pointer-events:none;
+  background:rgba(0,20,0,0.95);border:1px solid var(--green);border-radius:4px;
+  padding:5px 9px;font-size:11px;color:var(--green);max-width:200px;
+  word-break:break-word;line-height:1.5;display:none;
+}
+#bubble::after{
+  content:'';position:absolute;bottom:-7px;left:12px;
+  border:4px solid transparent;border-top-color:var(--green);border-bottom:none;
+}
+
+/* RIGHT PANEL */
+#rightPanel{
+  width:420px;min-width:360px;background:var(--panel);
+  border-left:1px solid var(--gdim);display:flex;flex-direction:column;
+}
+
+/* TOOLBAR */
+.ptbar{
+  display:flex;align-items:center;gap:4px;padding:5px 8px;flex-shrink:0;
+  border-bottom:1px solid var(--gdim);flex-wrap:wrap;
+}
+.ptbar .label{font-size:11px;color:var(--gmid);margin-right:2px;}
+.btn{
+  background:#001a00;border:1px solid var(--gdim);color:var(--gmid);
+  font-family:'Courier New',monospace;font-size:10px;padding:3px 8px;
+  cursor:pointer;border-radius:2px;transition:all .12s;
+}
+.btn:hover{border-color:var(--green);color:var(--green);}
+.btn.run{border-color:var(--green);color:var(--green);}
+.btn.run:hover{background:#003300;box-shadow:0 0 6px var(--green);}
+.ptbar .btn.run{} /* 데스크탑에서 실행 버튼 정상 표시 */
+@media (max-width:900px){
+  .ptbar .btn.run{ display:none; } /* 모바일에서는 왼쪽 위 ▶ 버튼으로만 실행 */
+}
+.btn.dl{border-color:var(--blue);color:var(--blue);}
+.btn.aibtn{border-color:var(--purple);color:var(--purple);}
+.btn.danger{border-color:var(--red);color:var(--red);}
+
+/* PANES */
+.pane{display:none;flex-direction:column;flex:1;min-height:0;}
+.pane.active{display:flex;}
+
+/* ===== EDITOR ===== */
+#codeWrap{flex:1;display:flex;min-height:0;position:relative;}
+#lineNums{
+  background:#030a03;padding:10px 6px;font-size:12px;line-height:1.7;
+  color:var(--gdim);text-align:right;user-select:none;border-right:1px solid var(--gdim);
+  min-width:36px;overflow:hidden;flex-shrink:0;
+}
+#codeArea{
+  flex:1;background:#050f05;color:var(--green);
+  font-family:'Courier New',monospace;font-size:12px;
+  border:none;outline:none;resize:none;padding:10px;line-height:1.7;
+  caret-color:var(--green);tab-size:4;
+}
+#codeArea::selection{background:#003b00;}
+#outputArea{
+  height:160px;flex-shrink:0;border-top:1px solid var(--gdim);
+  background:#030a03;overflow-y:auto;padding:8px 10px;font-size:11px;line-height:1.7;
+}
+.o-out{color:var(--gmid);}.o-err{color:var(--red);}.o-sys{color:var(--gdim);}
+.o-num{color:var(--blue);}.o-str{color:var(--yellow);}.o-ok{color:var(--green);}
+
+/* ===== BLOCK CODING - 엔트리 스타일 ===== */
+#blockTop{flex-shrink:0;}
+#blockPalette{
+  display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;
+  border-bottom:1px solid var(--gdim);background:#000d00;
+}
+.palbtn{
+  display:flex;align-items:center;gap:5px;
+  font-family:'Courier New',monospace;font-size:10px;
+  padding:4px 10px 4px 8px;cursor:pointer;
+  border:none;border-radius:3px;color:#fff;font-weight:bold;
+  position:relative;
+}
+.palbtn::before{content:'⬡';margin-right:2px;font-size:11px;}
+.palbtn:active{opacity:0.7;}
+.palbtn.pb-print  {background:#1e7a1e;box-shadow:0 2px 0 #0d4a0d;}
+.palbtn.pb-var    {background:#7a6a00;box-shadow:0 2px 0 #4a4000;}
+.palbtn.pb-if     {background:#7a4400;box-shadow:0 2px 0 #4a2800;}
+.palbtn.pb-for    {background:#005c8a;box-shadow:0 2px 0 #003a5a;}
+.palbtn.pb-while  {background:#6a006a;box-shadow:0 2px 0 #3a003a;}
+.palbtn.pb-func   {background:#4a007a;box-shadow:0 2px 0 #2a0044;}
+.palbtn.pb-input  {background:#007a6a;box-shadow:0 2px 0 #004a3a;}
+.palbtn.pb-comment{background:#333;box-shadow:0 2px 0 #111;}
+
+#blockCanvas{flex:1;min-height:0;overflow-y:auto;padding:8px 6px;display:flex;flex-direction:column;gap:2px;background:#050f05;}
+
+/* 엔트리식 퍼즐 블록 */
+.eblock{
+  position:relative;display:flex;flex-direction:column;
+  margin-left:0;border-radius:4px;
+  font-family:'Courier New',monospace;
+}
+.eblock-row{
+  display:flex;align-items:center;flex-wrap:wrap;gap:4px;
+  padding:7px 10px 7px 14px;border-radius:4px;
+  position:relative;min-height:36px;
+  box-shadow:0 3px 0 rgba(0,0,0,0.4);
+}
+/* 퍼즐 홈 (왼쪽 상단 notch) */
+.eblock-row::before{
+  content:'';position:absolute;top:-1px;left:14px;
+  width:14px;height:5px;border-radius:0 0 4px 4px;
+  background:rgba(0,0,0,0.3);
+}
+/* 퍼즐 돌기 (하단 connector) */
+.eblock-row::after{
+  content:'';position:absolute;bottom:-5px;left:14px;
+  width:14px;height:5px;border-radius:0 0 4px 4px;
+  z-index:2;
+}
+.eblock:first-child .eblock-row::before{display:none;}
+
+/* 색상별 블록 */
+.eb-print   .eblock-row{background:#1e7a1e;border:1px solid #2aaa2a;}
+.eb-print   .eblock-row::after{background:#1e7a1e;}
+.eb-var     .eblock-row{background:#7a6a00;border:1px solid #aaaa00;}
+.eb-var     .eblock-row::after{background:#7a6a00;}
+.eb-if      .eblock-row{background:#7a4400;border:1px solid #aa6600;}
+.eb-if      .eblock-row::after{background:#7a4400;}
+.eb-for     .eblock-row{background:#005c8a;border:1px solid #0088cc;}
+.eb-for     .eblock-row::after{background:#005c8a;}
+.eb-while   .eblock-row{background:#6a006a;border:1px solid #aa00aa;}
+.eb-while   .eblock-row::after{background:#6a006a;}
+.eb-func    .eblock-row{background:#4a007a;border:1px solid #7700cc;}
+.eb-func    .eblock-row::after{background:#4a007a;}
+.eb-input   .eblock-row{background:#007a6a;border:1px solid #00aaaa;}
+.eb-input   .eblock-row::after{background:#007a6a;}
+.eb-comment .eblock-row{background:#2a2a2a;border:1px solid #555;}
+.eb-comment .eblock-row::after{background:#2a2a2a;}
+
+/* 블록 내부 body (들여쓰기 영역) */
+.eblock-body{
+  margin-left:16px;padding:0;
+  border-left:3px solid rgba(255,255,255,0.15);
+  display:flex;flex-direction:column;gap:2px;
+  padding-left:2px;padding-top:2px;padding-bottom:2px;
+}
+.eblock-end{
+  display:flex;align-items:center;padding:5px 10px 5px 14px;
+  border-radius:4px;min-height:26px;font-size:10px;color:rgba(255,255,255,0.5);
+  margin-top:0;
+}
+.eb-if      .eblock-end{background:#5a3200;border:1px solid #7a4400;}
+.eb-for     .eblock-end{background:#004466;border:1px solid #005c8a;}
+.eb-while   .eblock-end{background:#4a004a;border:1px solid #6a006a;}
+.eb-func    .eblock-end{background:#2a0055;border:1px solid #4a007a;}
+
+/* 블록 내 입력 */
+.eblock-row .eb-lbl{font-size:11px;color:rgba(255,255,255,0.9);font-weight:bold;white-space:nowrap;}
+.eblock-row input[type=text]{
+  background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.3);
+  color:#fff;font-family:'Courier New',monospace;font-size:11px;
+  padding:2px 6px;border-radius:3px;outline:none;min-width:40px;
+}
+.eblock-row input[type=text]:focus{border-color:rgba(255,255,255,0.7);}
+.eblock-row textarea{
+  background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.3);
+  color:#fff;font-family:'Courier New',monospace;font-size:10px;
+  padding:3px 6px;border-radius:3px;outline:none;width:100%;
+  resize:vertical;min-height:32px;
+}
+.eb-actions{display:flex;gap:3px;margin-left:auto;flex-shrink:0;}
+.eb-actions button{
+  background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.7);cursor:pointer;font-size:10px;
+  padding:1px 5px;border-radius:2px;
+}
+.eb-actions button:hover{background:rgba(0,0,0,0.5);color:#fff;}
+.eblock-preview{
+  font-size:9px;color:rgba(255,255,255,0.4);
+  padding:2px 14px 4px;font-family:'Courier New',monospace;
+  white-space:pre;overflow:hidden;text-overflow:ellipsis;
+}
+
+#blockBottom{height:110px;flex-shrink:0;border-top:1px solid var(--gdim);background:#030a03;overflow-y:auto;padding:6px 8px;font-size:10px;line-height:1.7;}
+
+/* ===== AI CHAT ===== */
+#aiQuickWrap{
+  flex-shrink:0;padding:5px 8px;border-bottom:1px solid var(--gdim);
+  display:flex;flex-wrap:wrap;gap:4px;
+}
+.qbtn{
+  background:#001200;border:1px solid var(--gdim);color:var(--gdim);
+  font-family:'Courier New',monospace;font-size:10px;padding:2px 7px;cursor:pointer;border-radius:2px;
+}
+.qbtn:hover{border-color:var(--purple);color:var(--purple);}
+#aiLog{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.amsg{padding:7px 10px;border-radius:3px;font-size:11px;line-height:1.7;max-width:100%;white-space:pre-wrap;word-break:break-word;}
+.amsg.user{background:#001a00;border:1px solid var(--gdim);color:var(--green);align-self:flex-end;white-space:pre-wrap;}
+.amsg.bot{background:#050510;border:1px solid #00aaff33;color:#aaddff;align-self:flex-start;}
+.amsg.sys{color:var(--gdim);font-size:10px;align-self:center;text-align:center;}
+.amsg.thinking{color:var(--gdim);font-size:11px;align-self:flex-start;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.amsg.thinking{animation:blink 1s infinite;}
+#aiInputRow{display:flex;border-top:1px solid var(--gdim);flex-shrink:0;}
+#aiInput{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--green);font-family:'Courier New',monospace;font-size:12px;
+  padding:8px 10px;caret-color:var(--green);resize:none;height:64px;
+}
+#aiSend{
+  background:#001a00;border:none;border-left:1px solid var(--gdim);
+  color:var(--green);font-family:'Courier New',monospace;
+  padding:0 14px;cursor:pointer;font-size:12px;flex-shrink:0;
+}
+#aiSend:hover{background:#002a00;}
+
+/* ===== INSPECTOR ===== */
+#inspContent{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.isec{border:1px solid var(--gdim);border-radius:3px;overflow:hidden;}
+.isec-hd{
+  background:#001500;padding:5px 10px;font-size:11px;font-weight:bold;
+  color:var(--green);cursor:pointer;display:flex;justify-content:space-between;
+}
+.isec-body{padding:8px 10px;font-size:11px;line-height:1.9;color:var(--gmid);}
+.isec-body.hide{display:none;}
+.itag{
+  display:inline-block;border-radius:2px;padding:0 5px;font-size:10px;margin:1px;
+  background:#001200;border:1px solid var(--gdim);color:var(--green);
+}
+.itag.v{color:var(--yellow);border-color:#ffff0044;}
+.itag.f{color:var(--purple);border-color:#cc00ff44;}
+.itag.l{color:var(--blue);border-color:#00aaff44;}
+.itag.c{color:#ff8800;border-color:#ff880044;}
+.itag.e{color:var(--red);border-color:#ff330044;}
+
+/* ===== PANEL TOGGLE BUTTON (오른쪽 가장자리, 데스크탑+모바일 공용) ===== */
+#panelToggle{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:30;
+  background:rgba(0,0,0,0.9);border:1px solid var(--gdim);border-right:none;
+  border-radius:4px 0 0 4px;color:var(--green);
+  font-family:'Courier New',monospace;font-size:11px;
+  padding:10px 5px;cursor:pointer;writing-mode:vertical-rl;
+  letter-spacing:1px;transition:all .2s;line-height:1;
+  display:flex;align-items:center;gap:4px;
+}
+#panelToggle:hover{background:rgba(0,40,0,0.95);border-color:var(--green);box-shadow:-2px 0 8px #00ff4133;}
+#panelToggle .arrow{writing-mode:horizontal-tb;font-size:13px;}
+@media (max-width:900px){
+  #panelToggle{
+    right:auto;top:auto;bottom:0;left:50%;
+    transform:translateX(-50%);
+    writing-mode:horizontal-tb;
+    border-radius:8px 8px 0 0;
+    border:1px solid var(--green);border-bottom:none;
+    padding:6px 24px;font-size:13px;
+    box-shadow:0 -2px 10px #00ff4122;
+  }
+  #panelToggle .arrow{writing-mode:horizontal-tb;}
+}
+
+/* ===== RIGHT PANEL SLIDE ===== */
+#rightPanel{
+  transition:transform .25s ease, width .25s ease;
+}
+#rightPanel.collapsed{
+  width:0 !important;
+  min-width:0 !important;
+  overflow:hidden;
+  border:none;
+}
+#rightPanel.collapsed .pane{display:none !important;}
+#rightPanel.collapsed::after{display:none;}
+
+/* ===== MOBILE CONTROLS (재배치) ===== */
+/* 왼쪽 위: 실행 / 플라이 버튼 */
+#mobileTopLeft{
+  display:none;position:fixed;top:calc(44px + env(safe-area-inset-top));left:calc(8px + env(safe-area-inset-left));z-index:25;
+  flex-direction:column;gap:6px;pointer-events:auto;
+}
+#mobileTopLeft.show{display:flex;}
+
+/* 왼쪽 아래: 좌우 이동 + 패널 토글[<][>] */
+#mobileBottomLeft{
+  display:none;position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));left:calc(8px + env(safe-area-inset-left));z-index:25;
+  flex-direction:row;align-items:center;gap:8px;pointer-events:auto;
+}
+#mobileBottomLeft.show{display:flex;}
+
+/* 오른쪽: 위/아래 버튼 (점프 / 웅크리기·하강) */
+#mobileRight{
+  display:none;position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));right:calc(8px + env(safe-area-inset-right));z-index:25;
+  flex-direction:column;gap:6px;pointer-events:auto;align-items:center;
+}
+#mobileRight.show{display:flex;}
+
+.dpad-btn{
+  background:rgba(0,255,65,0.08);border:1px solid #00ff4144;border-radius:6px;
+  color:var(--green);font-size:18px;width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;
+  transition:background .1s;
+}
+.dpad-btn:active{background:rgba(0,255,65,0.3);}
+
+.mob-action{
+  background:rgba(0,255,65,0.08);border:1px solid var(--green);border-radius:6px;
+  color:var(--green);font-family:'Courier New',monospace;font-size:11px;
+  padding:8px 12px;cursor:pointer;user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;transition:background .1s;min-width:74px;text-align:center;
+}
+.mob-action:active{background:rgba(0,255,65,0.3);}
+
+/* 오른쪽 위/아래 버튼: 같은 모양, 점프 / 웅크리기-하강 */
+.dpad-ud{
+  background:rgba(0,255,65,0.08);border:1px solid var(--green);border-radius:6px;
+  color:var(--green);font-size:20px;width:50px;height:46px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  user-select:none;touch-action:manipulation;transition:background .1s;
+}
+.dpad-ud:active{background:rgba(0,255,65,0.3);}
+
+/* detect mobile: show controls */
+@media (max-width: 900px) {
+  #panelToggle{padding:14px 7px;font-size:13px;}
+  #rightPanel{width:100% !important;min-width:0 !important;position:fixed;top:auto;bottom:0;left:0;right:0;height:50dvh;z-index:20;border-top:2px solid var(--green);border-left:none;}
+  #rightPanel.collapsed{height:0 !important;top:auto !important;width:100% !important;min-width:100% !important;overflow:hidden;border:none;}
+  #rightPanel.collapsed::after{display:none;}
+  #layout{flex-direction:column;}
+  #gamePanel{
+    height:calc(100dvh - var(--topbarH));
+    min-height:0;
+    flex:1;
+  }
+  .topnote{display:none;}
+  #keysHint{display:none;}
+}
+/* 가로 모드 (landscape) 별도 처리 */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root{--mobBarH:44px;}
+  #rightPanel.collapsed{height:0 !important;}
+  #gamePanel{height:calc(100dvh - var(--topbarH));}
+}
+
+/* ═══ HD어드민 패널 ═══ */
+#pane-hdadmin {
+  display: none;
+  flex-direction: column;
+  position: fixed;
+  top: 38px;
+  right: 0;
+  width: 50%;
+  bottom: 0;
+  z-index: 50;
+  background: var(--panel);
+  border-left: 1px solid var(--gdim);
+}
+#pane-hdadmin.active { display: flex; }
+
+#hd-scroll {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+
+#hd-log {
+  height: 90px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--gdim);
+  background: #030a03;
+  overflow-y: auto;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.hd-ok  { color: var(--green); }
+.hd-err { color: var(--red); }
+.hd-inf { color: var(--gdim); }
+
+/* 섹션 카드 */
+.hd-card {
+  border: 1px solid var(--gdim);
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.hd-card-title {
+  padding: 8px 12px;
+  background: #001500;
+  border-bottom: 1px solid var(--gdim);
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+.hd-card-body {
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 행 */
+.hd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hd-lbl {
+  font-size: 10px;
+  color: var(--gdim);
+  min-width: 48px;
+  flex-shrink: 0;
+}
+
+/* ON/OFF 토글 */
+.hd-pair {
+  display: flex;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--gdim);
+}
+.hd-on, .hd-off {
+  padding: 7px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: all .12s;
+}
+.hd-on  { background: #001800; color: #335533; }
+.hd-off { background: #001800; color: #335533; border-left: 1px solid var(--gdim); }
+.hd-on.active  { background: #003300; color: var(--green); box-shadow: inset 0 0 8px #00ff4122; }
+.hd-off.active { background: #1a0000; color: var(--red);   box-shadow: inset 0 0 8px #ff330022; }
+
+/* 슬라이더 */
+.hd-sl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.hd-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #002200;
+  outline: none;
+  cursor: pointer;
+}
+.hd-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--green);
+  cursor: pointer;
+  box-shadow: 0 0 6px #00ff4177;
+}
+.hd-slider::-moz-range-thumb {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  cursor: pointer;
+}
+.hd-sl-val {
+  min-width: 38px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--green);
+  font-family: 'Courier New', monospace;
+}
+.hd-apply {
+  padding: 7px 13px;
+  background: #001800;
+  border: 1px solid var(--gdim);
+  color: var(--gmid);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: all .12s;
+}
+.hd-apply:hover { border-color: var(--green); color: var(--green); background: #002800; }
+.hd-apply:active { background: #003800; }
+
+/* 숫자/텍스트 입력 */
+.hd-num {
+  width: 64px;
+  background: #020f02;
+  border: 1px solid var(--gdim);
+  color: var(--green);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 5px 7px;
+  border-radius: 3px;
+  outline: none;
+  text-align: center;
+}
+.hd-txt {
+  flex: 1;
+  background: #020f02;
+  border: 1px solid var(--gdim);
+  color: var(--green);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  padding: 5px 7px;
+  border-radius: 3px;
+  outline: none;
+}
+.hd-num:focus, .hd-txt:focus { border-color: var(--green); }
+
+/* 색상 피커 */
+.hd-color {
+  width: 38px; height: 32px;
+  border: 1px solid var(--gdim);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+/* 단독 버튼 */
+.hd-btn {
+  padding: 8px 14px;
+  background: #001800;
+  border: 1px solid var(--gdim);
+  color: var(--gmid);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all .12s;
+}
+.hd-btn:hover { border-color: var(--green); color: var(--green); background: #002800; }
+.hd-btn.red { border-color: #440000; color: #884444; }
+.hd-btn.red:hover { border-color: var(--red); color: var(--red); background: #1a0000; }
+</style>
+</head>
+<body>
+<canvas id="rainCanvas"></canvas>
+<canvas id="gameCanvas"></canvas>
+
+<!-- PANEL TOGGLE BUTTON (데스크탑) -->
+<button id="panelToggle" onclick="togglePanel()">
+  <span class="arrow" id="panelArrow">[&lt;</span>
+</button>
+
+<!-- MOBILE CONTROLS (재배치) -->
+<!-- 왼쪽 위: 실행 / 플라이 -->
+<div id="mobileTopLeft">
+  <button class="mob-action" id="mob-run" onclick="runCode()">▶ 실행</button>
+  <button class="mob-action" id="mob-fly-toggle" onclick="toggleFly()">✈ 플라이 OFF</button>
+</div>
+
+<!-- 왼쪽 아래: 좌우 이동 -->
+<div id="mobileBottomLeft">
+  <div class="dpad-btn" id="dpad-left">◀</div>
+  <div class="dpad-btn" id="dpad-right">▶</div>
+</div>
+
+<!-- 오른쪽: 위(점프) / 아래(플라이중 하강, 평소 웅크리기) -->
+<div id="mobileRight">
+  <div class="dpad-ud" id="dpad-up">▲</div>
+  <div class="dpad-ud" id="dpad-down">▼</div>
+</div>
+
+
+
+
+<div id="topbar">
+  <div class="logo">> PYTHON_MATRIX</div>
+  <button class="tab-btn active" id="t-editor"    onclick="sw('editor')">에디터</button>
+  <button class="tab-btn"        id="t-block"     onclick="sw('block')">블록 코딩</button>
+  <button class="tab-btn"        id="t-ai"        onclick="sw('ai')">AI 질문</button>
+  <button class="tab-btn"        id="t-inspector" onclick="sw('inspector')">명령어</button>
+  <button class="tab-btn"        id="t-hdadmin"   onclick="sw('hdadmin')">HD어드민</button>
+  <div class="spacer"></div>
+  <div class="topnote">WASD / 화살표 이동  |  스페이스 점프  |  R 리셋</div>
+</div>
+
+<div id="layout">
+  <!-- GAME -->
+  <div id="gamePanel">
+    <div id="bubble"></div>
+    <div id="keysHint">
+      <b>A / 왼쪽</b> 이동<br>
+      <b>D / 오른쪽</b> 이동<br>
+      <b>스페이스 / W / 위</b> 점프<br>
+      <b>R</b> 리셋<br>
+      <b>print</b> 실행시 캐릭터가 말함
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="rightPanel">
+
+    <!-- 1. EDITOR -->
+    <div class="pane active" id="pane-editor">
+      <div class="ptbar">
+        <span class="label">Python 에디터</span>
+        <button class="btn run"    onclick="runCode()">실행 (F5)</button>
+        <button class="btn"        onclick="loadExample()">예제 불러오기</button>
+        <button class="btn aibtn"  onclick="askAiCode()">AI 설명 요청</button>
+        <button class="btn"        onclick="sw('inspector')">코드 분석</button>
+        <button class="btn dl"     onclick="dlPy()">다운로드 .py</button>
+        <button class="btn danger" onclick="clearEditor()">지우기</button>
+      </div>
+      <div id="codeWrap">
+        <div id="lineNums">1</div>
+        <textarea id="codeArea" spellcheck="false"
+          placeholder="# Python 코드를 입력하고 실행을 누르세요&#10;print('Hello, Matrix!')&#10;&#10;# 명령어 직접 실행 예시:&#10;# fly(True)   ← 날기&#10;# speed(10)   ← 빠르게&#10;# dance(True) ← 춤추기&#10;# say('안녕!') ← 말풍선"></textarea>
+      </div>
+      <div id="outputArea"><div class="o-sys"># 실행 결과. print() → 캐릭터 말풍선 | fly(True) / speed(10) / dance(True) 등 명령어도 직접 실행 가능!</div></div>
+    </div>
+
+    <!-- 2. BLOCK CODING -->
+    <div class="pane" id="pane-block">
+      <div id="blockTop">
+        <div class="ptbar">
+          <span class="label">블록 코딩</span>
+          <button class="btn run"    onclick="runBlocks()">실행</button>
+          <button class="btn dl"     onclick="dlBlockPy()">다운로드 .py</button>
+          <button class="btn aibtn"  onclick="blockToEditor()">에디터로 내보내기</button>
+          <button class="btn danger" onclick="clearBlocks()">지우기</button>
+        </div>
+        <div id="blockPalette">
+          <button class="palbtn pb-print"   onclick="addBlock('print')">출력</button>
+          <button class="palbtn pb-var"     onclick="addBlock('var')">변수</button>
+          <button class="palbtn pb-if"      onclick="addBlock('if')">조건</button>
+          <button class="palbtn pb-for"     onclick="addBlock('for')">for반복</button>
+          <button class="palbtn pb-while"   onclick="addBlock('while')">while반복</button>
+          <button class="palbtn pb-func"    onclick="addBlock('func')">함수</button>
+          <button class="palbtn pb-input"   onclick="addBlock('input')">입력</button>
+          <button class="palbtn pb-comment" onclick="addBlock('comment')">주석</button>
+        </div>
+      </div>
+      <div id="blockCanvas"></div>
+      <div id="blockBottom"><div style="color:var(--gdim)">블록을 추가하고 실행을 누르세요.</div></div>
+    </div>
+
+    <!-- 3. AI CHAT -->
+    <div class="pane" id="pane-ai">
+      <div class="ptbar">
+        <span class="label">AI Python 튜터 (무제한 질문)</span>
+        <button class="btn danger" onclick="clearAi()">대화 초기화</button>
+      </div>
+      <div id="aiQuickWrap">
+        <button class="qbtn" onclick="aiQ('Python이 뭐야? 초보자한테 쉽게 설명해줘')">Python이란?</button>
+        <button class="qbtn" onclick="aiQ('변수가 뭐야? 예제도 알려줘')">변수란?</button>
+        <button class="qbtn" onclick="aiQ('print() 함수 사용법 알려줘')">print 사용법</button>
+        <button class="qbtn" onclick="aiQ('for 반복문 쉽게 설명해줘 예제 여러개')">for 반복문</button>
+        <button class="qbtn" onclick="aiQ('while 반복문이 뭐야? for랑 뭐가 달라?')">while 반복문</button>
+        <button class="qbtn" onclick="aiQ('if 조건문 사용법 예제랑 같이 알려줘')">if 조건문</button>
+        <button class="qbtn" onclick="aiQ('함수(def)를 왜 쓰는지 예제로 알려줘')">함수 def</button>
+        <button class="qbtn" onclick="aiQ('리스트(list)가 뭐야? 사용법 알려줘')">리스트</button>
+        <button class="qbtn" onclick="aiQ('딕셔너리(dict) 사용법 알려줘')">딕셔너리</button>
+        <button class="qbtn" onclick="aiQ('input()으로 사용자 입력 받는 법 알려줘')">input 함수</button>
+        <button class="qbtn" onclick="aiQ('f-string이 뭐야? 예제 보여줘')">f-string</button>
+        <button class="qbtn" onclick="aiQ('try except 오류처리 방법 알려줘')">오류 처리</button>
+        <button class="qbtn" onclick="aiQ('클래스(class)와 객체지향이 뭔지 쉽게 알려줘')">클래스</button>
+        <button class="qbtn" onclick="aiQ('import와 라이브러리 사용법 알려줘')">import</button>
+        <button class="qbtn" onclick="aiQ('에디터에 있는 내 코드를 분석하고 설명해줘:\n\n'+getCode())">내 코드 분석</button>
+        <button class="qbtn" onclick="aiQ('내 코드의 오류를 찾아서 고쳐줘:\n\n'+getCode())">오류 찾기</button>
+        <button class="qbtn" onclick="aiQ('이 코드를 더 좋게 개선해줘:\n\n'+getCode())">코드 개선</button>
+        <button class="qbtn" onclick="aiQ('Python 코드 예제 10개 짧게 보여줘. 초보자용으로')">예제 모음</button>
+      </div>
+      <div id="aiLog">
+        <div class="amsg sys">AI Python 튜터입니다. 무엇이든 질문하세요. (무제한)</div>
+        <div class="amsg sys">위 버튼을 누르거나 직접 입력하세요. Shift+Enter = 줄바꿈</div>
+      </div>
+      <div id="aiInputRow">
+        <textarea id="aiInput" placeholder="Python 질문을 입력하세요... (Enter=전송)"></textarea>
+        <button id="aiSend" onclick="sendAi()">전송</button>
+      </div>
+    </div>
+
+    <!-- 4. COMMAND REFERENCE -->
+    <div class="pane" id="pane-inspector">
+      <div class="ptbar">
+        <span class="label">명령어 레퍼런스</span>
+        <button class="btn run" onclick="showAllCmds()">전체 보기</button>
+      </div>
+      <div id="inspContent"></div>
+    </div>
+
+    <!-- 5. HD어드민 ══════════════════════ -->
+    <div class="pane" id="pane-hdadmin">
+      <div class="ptbar">
+        <span class="label">HD어드민</span>
+        <button class="btn danger" onclick="document.getElementById('hd-log').innerHTML=''">로그 지우기</button>
+      </div>
+
+      <div id="hd-scroll">
+
+        <!-- 🎮 이동/물리 -->
+        <div class="hd-card">
+          <div class="hd-card-title">🎮 이동 / 물리</div>
+          <div class="hd-card-body">
+
+            <div class="hd-row">
+              <span class="hd-lbl">비행</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-fly"   onclick="hdTog('fly','t-fly','t-unfly')">ON</button>
+                <button class="hd-off" id="t-unfly" onclick="hdTog('unfly','t-fly','t-unfly')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">속도</span>
+              <div class="hd-sl-row">
+                <input class="hd-slider" id="sl-speed" type="range" min="1" max="40" value="4"
+                  oninput="document.getElementById('vl-speed').textContent=this.value">
+                <span class="hd-sl-val" id="vl-speed">4</span>
+              </div>
+              <button class="hd-apply" onclick="runHDCommand('speed '+document.getElementById('sl-speed').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">점프력</span>
+              <div class="hd-sl-row">
+                <input class="hd-slider" id="sl-jump" type="range" min="1" max="40" value="10"
+                  oninput="document.getElementById('vl-jump').textContent=this.value">
+                <span class="hd-sl-val" id="vl-jump">10</span>
+              </div>
+              <button class="hd-apply" onclick="runHDCommand('jumppower '+document.getElementById('sl-jump').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <button class="hd-btn" onclick="runHDCommand('resetspeed');hdSlReset('sl-speed','vl-speed',4);runHDCommand('resetjump');hdSlReset('sl-jump','vl-jump',10)">↺ 속도·점프 초기화</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">무적</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-god"   onclick="hdTog('god','t-god','t-ungod')">ON</button>
+                <button class="hd-off" id="t-ungod" onclick="hdTog('ungod','t-god','t-ungod')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">동결</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-freeze"   onclick="hdTog('freeze','t-freeze','t-unfreeze')">ON</button>
+                <button class="hd-off" id="t-unfreeze" onclick="hdTog('unfreeze','t-freeze','t-unfreeze')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">흔적</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-trail"   onclick="hdTog('trail','t-trail','t-untrail')">ON</button>
+                <button class="hd-off" id="t-untrail" onclick="hdTog('untrail','t-trail','t-untrail')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">좌표이동</span>
+              X<input class="hd-num" id="hd-gx" type="number" value="300">
+              Y<input class="hd-num" id="hd-gy" type="number" value="200">
+              <button class="hd-apply" onclick="runHDCommand('goto '+document.getElementById('hd-gx').value+' '+document.getElementById('hd-gy').value)">이동</button>
+            </div>
+
+            <div class="hd-row">
+              <button class="hd-btn" onclick="runHDCommand('respawn')">↺ 리스폰</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 🎨 외형 -->
+        <div class="hd-card">
+          <div class="hd-card-title">🎨 캐릭터 외형</div>
+          <div class="hd-card-body">
+
+            <div class="hd-row">
+              <span class="hd-lbl">이름</span>
+              <input class="hd-txt" id="hd-cname" type="text" value="Player">
+              <button class="hd-apply" onclick="runHDCommand('char '+document.getElementById('hd-cname').value)">변경</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">크기</span>
+              <div class="hd-sl-row">
+                <input class="hd-slider" id="sl-size" type="range" min="0.3" max="4" step="0.1" value="1"
+                  oninput="document.getElementById('vl-size').textContent=parseFloat(this.value).toFixed(1)">
+                <span class="hd-sl-val" id="vl-size">1.0</span>
+              </div>
+              <button class="hd-apply" onclick="runHDCommand('size '+document.getElementById('sl-size').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <button class="hd-btn" onclick="runHDCommand('resetsize');hdSlReset('sl-size','vl-size',1,'1.0')">↺ 크기 초기화</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">몸 색상</span>
+              <input class="hd-color" id="hd-bc" type="color" value="#00aaff">
+              <button class="hd-apply" onclick="runHDCommand('bodycolor '+document.getElementById('hd-bc').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">머리 색상</span>
+              <input class="hd-color" id="hd-hc" type="color" value="#ffcc88">
+              <button class="hd-apply" onclick="runHDCommand('headcolor '+document.getElementById('hd-hc').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">투명도</span>
+              <div class="hd-sl-row">
+                <input class="hd-slider" id="sl-alpha" type="range" min="0" max="1" step="0.05" value="1"
+                  oninput="document.getElementById('vl-alpha').textContent=parseFloat(this.value).toFixed(2)">
+                <span class="hd-sl-val" id="vl-alpha">1.00</span>
+              </div>
+              <button class="hd-apply" onclick="runHDCommand('alpha '+document.getElementById('sl-alpha').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">표시</span>
+              <div class="hd-pair">
+                <button class="hd-on active" id="t-visible"   onclick="hdTog('visible','t-visible','t-invis')">보이기</button>
+                <button class="hd-off"       id="t-invis"     onclick="hdTog('invisible','t-visible','t-invis')">숨기기</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 💬 말/알림 -->
+        <div class="hd-card">
+          <div class="hd-card-title">💬 말 / 알림</div>
+          <div class="hd-card-body">
+
+            <div class="hd-row">
+              <span class="hd-lbl">말풍선</span>
+              <input class="hd-txt" id="hd-say" type="text" value="안녕하세요!">
+              <button class="hd-apply" onclick="runHDCommand('say '+document.getElementById('hd-say').value)">말하기</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">배너</span>
+              <input class="hd-txt" id="hd-ann" type="text" value="아이템 획득!">
+              <button class="hd-apply" onclick="runHDCommand('announce '+document.getElementById('hd-ann').value)">알림</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ✨ 포즈/이펙트 -->
+        <div class="hd-card">
+          <div class="hd-card-title">✨ 포즈 / 이펙트</div>
+          <div class="hd-card-body">
+
+            <div class="hd-row">
+              <span class="hd-lbl">춤</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-dance"   onclick="hdTog('dance','t-dance','t-undance')">ON</button>
+                <button class="hd-off" id="t-undance" onclick="hdTog('undance','t-dance','t-undance')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">앉기</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-sit"   onclick="hdTog('sit','t-sit','t-unsit')">ON</button>
+                <button class="hd-off" id="t-unsit" onclick="hdTog('unsit','t-sit','t-unsit')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">보호막</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-ff"   onclick="hdTog('ff','t-ff','t-unff')">ON</button>
+                <button class="hd-off" id="t-unff" onclick="hdTog('unff','t-ff','t-unff')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">화염</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-fire"   onclick="hdTog('fire','t-fire','t-nofire')">ON</button>
+                <button class="hd-off" id="t-nofire" onclick="hdTog('nofire','t-fire','t-nofire')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">연기</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-smoke"   onclick="hdTog('smoke','t-smoke','t-nosmoke')">ON</button>
+                <button class="hd-off" id="t-nosmoke" onclick="hdTog('nosmoke','t-smoke','t-nosmoke')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">반짝임</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-sparkles"   onclick="hdTog('sparkles','t-sparkles','t-nosparkles')">ON</button>
+                <button class="hd-off" id="t-nosparkles" onclick="hdTog('nosparkles','t-sparkles','t-nosparkles')">OFF</button>
+              </div>
+            </div>
+
+            <div class="hd-row">
+              <button class="hd-btn red" onclick="runHDCommand('explode')">💥 폭발</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 🌍 환경 -->
+        <div class="hd-card">
+          <div class="hd-card-title">🌍 환경 효과</div>
+          <div class="hd-card-body">
+
+            <div class="hd-row">
+              <span class="hd-lbl">낮/밤</span>
+              <div class="hd-sl-row">
+                <span style="font-size:10px;color:var(--gdim)">🌙</span>
+                <input class="hd-slider" id="sl-time" type="range" min="0" max="1" step="0.05" value="1"
+                  oninput="document.getElementById('vl-time').textContent=parseFloat(this.value).toFixed(2)">
+                <span style="font-size:10px;color:var(--gdim)">☀️</span>
+                <span class="hd-sl-val" id="vl-time">1.00</span>
+              </div>
+              <button class="hd-apply" onclick="runHDCommand('time '+document.getElementById('sl-time').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">주변광</span>
+              <div class="hd-sl-row">
+                <input class="hd-slider" id="sl-amb" type="range" min="0" max="1" step="0.05" value="1"
+                  oninput="document.getElementById('vl-amb').textContent=parseFloat(this.value).toFixed(2)">
+                <span class="hd-sl-val" id="vl-amb">1.00</span>
+              </div>
+              <button class="hd-apply" onclick="runHDCommand('ambient '+document.getElementById('sl-amb').value)">적용</button>
+            </div>
+
+            <div class="hd-row">
+              <span class="hd-lbl">안개</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-fog"   onclick="hdTog('fog','t-fog','t-unfog')">ON</button>
+                <button class="hd-off" id="t-unfog" onclick="hdTog('unfog','t-fog','t-unfog')">OFF</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 👥 멀티/더미 -->
+        <div class="hd-card">
+          <div class="hd-card-title">👥 멀티 / 더미</div>
+          <div class="hd-card-body">
+
+            <div class="hd-row">
+              <span class="hd-lbl">2인 모드</span>
+              <div class="hd-pair">
+                <button class="hd-on"  id="t-2play"   onclick="hdTog('2play','t-2play','t-un2play')">ON</button>
+                <button class="hd-off" id="t-un2play" onclick="hdTog('un2play','t-2play','t-un2play')">OFF</button>
+              </div>
+              <span style="font-size:10px;color:var(--gdim)">IJKL+U</span>
+            </div>
+
+            <div class="hd-row">
+              <button class="hd-btn red" onclick="runHDCommand('kill dummy1')">💀 kill dummy1</button>
+              <button class="hd-btn red" onclick="runHDCommand('kill bummy2')">💀 kill bummy2</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 🐍 Python 즉시실행 -->
+        <div class="hd-card">
+          <div class="hd-card-title">🐍 Python 즉시 실행</div>
+          <div class="hd-card-body">
+            <div class="hd-row">
+              <input class="hd-txt" id="hd-pyrun" type="text" value="print('Hello!')" placeholder="파이썬 코드">
+              <button class="hd-apply" style="border-color:var(--green);color:var(--green);"
+                onclick="runHDCommand('run '+document.getElementById('hd-pyrun').value)">▶ 실행</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /hd-scroll -->
+
+      <div id="hd-log"><span class="hd-inf">> HD어드민 준비됨</span></div>
+    </div><!-- /pane-hdadmin -->
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  MATRIX RAIN
+// ═══════════════════════════════════════════
+const rc=document.getElementById('rainCanvas'),rx=rc.getContext('2d');
+let rW,rH,rCols;
+function initRain(){
+  rW=rc.width=window.innerWidth;rH=rc.height=window.innerHeight;
+  rCols=Array.from({length:Math.floor(rW/14)},()=>Math.random()*rH/14|0);
+}
+function drawRain(){
+  rx.fillStyle='rgba(10,10,10,0.08)';rx.fillRect(0,0,rW,rH);
+  rx.font='12px Courier New';
+  rCols.forEach((y,i)=>{
+    rx.fillStyle=Math.random()>.97?'#00c030':'#001800';
+    rx.fillText(Math.random()>.5?'1':'0',i*14,y*14);
+    if(y*14>rH&&Math.random()>.975)rCols[i]=0;else rCols[i]++;
+  });
+}
+initRain();setInterval(drawRain,55);
+function doFullResize(){
+  initRain();resizeGame();
+  // 전체화면 전환 시 레이아웃이 바로 반영되지 않는 경우가 있어 한 번 더 보정
+  requestAnimationFrame(()=>{initRain();resizeGame();});
+  setTimeout(()=>{initRain();resizeGame();},150);
+  setTimeout(()=>{initRain();resizeGame();},400);
+}
+window.addEventListener('resize',doFullResize);
+document.addEventListener('fullscreenchange',doFullResize);
+document.addEventListener('webkitfullscreenchange',doFullResize);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)doFullResize();});
+if(window.visualViewport)window.visualViewport.addEventListener('resize',doFullResize);
+window.addEventListener('orientationchange',()=>{
+  setTimeout(doFullResize,100);
+  setTimeout(doFullResize,300);
+  setTimeout(doFullResize,600);
+  setTimeout(doFullResize,1000);
+});
+
+// ═══════════════════════════════════════════
+//  GAME ENGINE
+// ═══════════════════════════════════════════
+const gc=document.getElementById('gameCanvas'),ctx=gc.getContext('2d');
+let W,H;
+function resizeGame(){
+  const gp=document.getElementById('gamePanel');
+  const rect=gp.getBoundingClientRect();
+  const vw=window.visualViewport?window.visualViewport.width:window.innerWidth;
+  const vh=window.visualViewport?window.visualViewport.height:window.innerHeight;
+  let gw=rect.width, gh=rect.height;
+  if(!gw||gw<10)gw=vw||800;
+  if(!gh||gh<10)gh=vh-38||600;
+  W=gc.width=Math.round(gw);
+  H=gc.height=Math.round(gh);
+  // CSS scale to fill exactly — no black bars on any device
+  gc.style.width=Math.round(gw)+'px';
+  gc.style.height=Math.round(gh)+'px';
+  gc.style.top=Math.round(rect.top)+'px';
+  gc.style.left=Math.round(rect.left)+'px';
+}
+
+const P={x:100,y:300,w:26,h:34,baseW:26,baseH:34,vx:0,vy:0,onGround:false,face:1,anim:0,
+  speed:4,baseSpeed:4,jump:10,baseJump:10,bodyColor:'#00aaff',headColor:'#ffcc88',
+  alpha:1,god:false,frozen:false,visible:true,name:'Player',trail:false,trailPts:[],
+  dancing:false,sitting:false,fireOn:false,smokeOn:false,sparkleOn:false,shield:false};
+let PARTICLES=[];let dayNight=1;let ambientLevel=1;let fogOn=false;
+const DUMMIES=[
+  {name:'dummy1',x:640,y:0,w:26,h:34,vx:0,vy:0,onGround:false,knockX:0,dead:false,respawnAt:0,spawnX:640,spawnY:280,bodyColor:'#888',headColor:'#aaa'},
+  {name:'bummy2',x:760,y:0,w:26,h:34,vx:0,vy:0,onGround:false,knockX:0,dead:false,respawnAt:0,spawnX:760,spawnY:280,bodyColor:'#996666',headColor:'#ccaaaa'},
+];
+DUMMIES.forEach(d=>{d.y=d.spawnY-d.h;});
+function killDummy(name){
+  if(!name)return false;
+  const d=DUMMIES.find(x=>x.name.toLowerCase()===String(name).trim().toLowerCase());
+  if(!d)return false;
+  d.dead=true;
+  d.respawnAt=Date.now()+4000; // 4초 후 리스폰 (게임 루프에서 체크)
+  return true;
+}
+function checkDummyRespawns(){
+  const now=Date.now();
+  DUMMIES.forEach(d=>{
+    if(d.dead&&d.respawnAt&&now>=d.respawnAt){
+      d.dead=false;d.respawnAt=0;
+      d.x=d.spawnX;d.y=d.spawnY-d.h;d.vx=0;d.vy=0;d.knockX=0;
+    }
+  });
+}
+
+const PLATS=[
+  {x:-100,y:430,w:420,h:18,c:'#1a4a1a'},
+  {x:340,y:380,w:120,h:18,c:'#1a4a1a'},
+  {x:480,y:330,w:100,h:18,c:'#1a4a1a'},
+  {x:600,y:280,w:260,h:18,c:'#1a3a3a'},
+  {x:880,y:240,w:100,h:18,c:'#1a4a1a'},
+  {x:1000,y:200,w:80,h:18,c:'#1a4a1a'},
+  {x:1100,y:160,w:80,h:18,c:'#1a4a1a'},
+  {x:1200,y:200,w:80,h:18,c:'#1a4a1a'},
+  {x:1300,y:160,w:80,h:18,c:'#1a4a1a'},
+  {x:1400,y:200,w:200,h:18,c:'#1a3a1a'},
+  {x:1620,y:160,w:80,h:18,c:'#1a4a1a'},
+  {x:1720,y:120,w:80,h:18,c:'#1a4a1a'},
+  {x:1820,y:160,w:300,h:18,c:'#2a2a00'},
+];
+
+const GRAV=0.45;
+let camX=0,camY=0;
+const keys={};
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  const inp=['TEXTAREA','INPUT'].includes(document.activeElement.tagName);
+  if(!inp&&['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
+  if(!inp&&e.code==='KeyR')resetP();
+  if(!inp&&e.code==='F5'){e.preventDefault();runCode();}
+});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+
+function aabb(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;}
+
+function phys(obj){
+  obj.vy=(obj.vy||0)+GRAV;
+  obj.x+=obj.vx||0;obj.y+=obj.vy;
+  obj.onGround=false;
+  for(const pl of PLATS){
+    if(aabb(obj.x,obj.y,obj.w,obj.h,pl.x,pl.y,pl.w,pl.h)){
+      const pb=obj.y+obj.h-obj.vy;
+      if(pb<=pl.y+2&&obj.vy>=0){obj.y=pl.y-obj.h;obj.vy=0;obj.onGround=true;}
+    }
+  }
+}
+
+function updateP(){
+  if(P.frozen)return;  const inp=['TEXTAREA','INPUT'].includes(document.activeElement.tagName);
+  const mob = window._mobileHeld || {};
+  if(P.sitting){
+    P.vx*=0.5;P.h=P.baseH*0.55;P.anim+=0.04;
+    if(!flyMode)phys(P);
+    if(P.y>H+200&&!P.god)resetP();
+    return;
+  }
+  if(!inp){
+    let mv=false;
+    const goLeft  = keys['KeyA']||keys['ArrowLeft']  || mob['left'];
+    const goRight = keys['KeyD']||keys['ArrowRight'] || mob['right'];
+    const goJump  = keys['Space']||keys['KeyW']||keys['ArrowUp'] || mob['up'];
+    if(goLeft) {P.vx=-P.speed;P.face=-1;mv=true;}
+    else if(goRight){P.vx=P.speed;P.face=1;mv=true;}
+    else P.vx*=0.72;
+    if(flyMode){
+      // fly: up with jump key, gravity off
+      if(goJump) P.vy = -P.speed;
+      else if(!mob['down']) P.vy *= 0.7;
+    } else {
+      if(goJump&&P.onGround){P.vy=-P.jump;P.onGround=false;}
+    }
+    if(mv&&P.onGround)P.anim+=0.18;
+    if(P.dancing)P.anim+=0.5; // 춤: 빠른 애니메이션
+  }else P.vx*=0.72;
+  if(flyMode){
+    // no gravity in fly mode — manual phys
+    P.x+=P.vx; P.y+=P.vy; P.onGround=false;
+    P.y=Math.max(0,P.y);
+  } else {
+    phys(P);
+  }
+  if(P.y>H+200&&!P.god)resetP();
+}
+function updateDM(){
+  DUMMIES.forEach(d=>{
+    if(d.dead)return;
+    d.vx=d.knockX;d.knockX*=0.78;
+    phys(d);
+    if(d.y>H+200){d.x=d.spawnX;d.y=d.spawnY-d.h;d.vy=0;}
+  });
+}
+function updateP2(){
+  if(!player2)return;
+  const inp=['TEXTAREA','INPUT'].includes(document.activeElement.tagName);
+  if(!inp){
+    let mv=false;
+    if(keys['KeyJ']){player2.vx=-player2.speed;player2.face=-1;mv=true;}
+    else if(keys['KeyL']){player2.vx=player2.speed;player2.face=1;mv=true;}
+    else player2.vx*=0.72;
+    if(keys['KeyU']&&player2.onGround){player2.vy=-player2.jump;player2.onGround=false;}
+    if(keys['KeyO']){player2.x=160;player2.y=380;player2.vx=0;player2.vy=0;}
+    if(mv&&player2.onGround)player2.anim+=0.18;
+  }
+  phys(player2);
+  if(player2.y>H+200){player2.x=160;player2.y=380;player2.vy=0;}
+}
+// ═══════════════════════════════════════════
+//  COMMAND SYSTEM (콘솔 UI 없이 에디터 출력창으로)
+// ═══════════════════════════════════════════
+let cmdConsoleOpen=false;
+let player2=null; // /2play
+function toggleCmdConsole(){ /* HD 어드민 창 제거됨 — 에디터에서 직접 명령어 실행 가능 */ }
+function cmdLog(text,cls){
+  const o=document.getElementById('outputArea');
+  if(o){const d=document.createElement('div');d.className='o-sys';d.textContent=text;o.appendChild(d);o.scrollTop=o.scrollHeight;}
+  const hl=document.getElementById('hd-log');
+  if(hl){const d=document.createElement('div');d.className=cls==='cl-err'?'hd-err':cls==='cl-ok'?'hd-ok':'hd-inf';d.textContent='> '+text;hl.appendChild(d);hl.scrollTop=hl.scrollHeight;}
+}
+document.addEventListener('DOMContentLoaded',()=>{});
+function bindCmdEnter(){
+  // cmdInput 없음 — 에디터의 코드 실행으로 대체
+}
+
+function announce(msg){
+  let a=document.getElementById('announceBanner');
+  if(!a){
+    a=document.createElement('div');a.id='announceBanner';
+    a.style.cssText='position:fixed;top:38px;left:0;right:0;z-index:50;background:rgba(0,0,0,0.92);'+
+      'color:var(--yellow);border-bottom:2px solid var(--yellow);padding:10px 16px;font-size:13px;'+
+      'font-family:Courier New,monospace;text-align:center;';
+    document.body.appendChild(a);
+  }
+  a.textContent='📢 '+msg;a.style.display='block';
+  clearTimeout(a._t);a._t=setTimeout(()=>a.style.display='none',5000);
+}
+
+function enable2Play(){
+  if(player2){cmdLog('2play 모드는 이미 켜져 있습니다. (IJKL 이동, U 점프)','cl-info');return;}
+  player2={x:160,y:380,w:26,h:34,vx:0,vy:0,onGround:false,face:1,anim:0,speed:4,jump:10,
+    bodyColor:'#ff6699',headColor:'#ffe0c0',name:'Player2',alpha:1,visible:true};
+  cmdLog('2play 활성화! IJKL=이동, U=점프, O=리셋','cl-ok');
+}
+function disable2Play(){player2=null;cmdLog('2play 비활성화.','cl-ok');}
+
+// ═══════════════════════════════════════════
+//  EFFECTS / PARTICLES / ENVIRONMENT (2026)
+// ═══════════════════════════════════════════
+function explodeAt(x,y){
+  for(let k=0;k<24;k++){
+    const ang=Math.random()*Math.PI*2,sp=2+Math.random()*4;
+    PARTICLES.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-1,life:34,maxLife:34,color:'#ff8800',size:3+Math.random()*2});
+  }
+}
+function spawnEffectParticles(){
+  if(P.fireOn&&Math.random()<0.6)PARTICLES.push({x:P.x+P.w/2+(Math.random()*10-5),y:P.y+4,vx:(Math.random()*0.6-0.3),vy:-1.2-Math.random()*0.8,life:26,maxLife:26,color:'#ff5500',size:4+Math.random()*3});
+  if(P.smokeOn&&Math.random()<0.4)PARTICLES.push({x:P.x+P.w/2+(Math.random()*8-4),y:P.y-2,vx:(Math.random()*0.4-0.2),vy:-0.5-Math.random()*0.3,life:60,maxLife:60,color:'#999999',size:5+Math.random()*4});
+  if(P.sparkleOn&&Math.random()<0.5)PARTICLES.push({x:P.x+Math.random()*P.w,y:P.y+Math.random()*P.h,vx:(Math.random()*1-0.5),vy:(Math.random()*1-0.5),life:24,maxLife:24,color:'#ffff66',size:2+Math.random()*2});
+}
+function updateParticles(){
+  spawnEffectParticles();
+  for(let k=PARTICLES.length-1;k>=0;k--){
+    const p=PARTICLES[k];p.x+=p.vx;p.y+=p.vy;p.vy+=0.01;p.life--;
+    if(p.life<=0)PARTICLES.splice(k,1);
+  }
+  if(PARTICLES.length>400)PARTICLES.splice(0,PARTICLES.length-400);
+}
+function drawParticles(){
+  PARTICLES.forEach(p=>{
+    const a=Math.max(0,p.life/p.maxLife);
+    ctx.save();ctx.globalAlpha=a;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x-camX,p.y-camY,p.size*a+1,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  });
+}
+function drawEnvOverlay(){
+  if(dayNight<1){ctx.fillStyle='rgba(0,0,25,'+((1-dayNight)*0.55)+')';ctx.fillRect(0,0,W,H);}
+  if(ambientLevel<1){ctx.fillStyle='rgba(0,0,0,'+((1-ambientLevel)*0.5)+')';ctx.fillRect(0,0,W,H);}
+  if(fogOn){const g=ctx.createLinearGradient(0,H*0.55,0,H);g.addColorStop(0,'rgba(200,200,200,0)');g.addColorStop(1,'rgba(200,200,200,0.28)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+}
+// Python/HD 명령어 ↔ 캐릭터 직접 연결 브릿지 (print 뿐 아니라 다른 명령어도 캐릭터에 적용)
+function pyBridge(name,argv){
+  const b=v=>v===undefined?true:!!v;
+  switch(name){
+    case 'fly': flyMode=b(argv[0]);syncFlyUI();return 'fly='+flyMode;
+    case 'speed': P.speed=argv[0]!=null?Number(argv[0]):P.baseSpeed;return 'speed='+P.speed;
+    case 'jumppower': P.jump=argv[0]!=null?Number(argv[0]):P.baseJump;return 'jumppower='+P.jump;
+    case 'god': P.god=b(argv[0]);return 'god='+P.god;
+    case 'freeze': P.frozen=b(argv[0]);return 'freeze='+P.frozen;
+    case 'trail': P.trail=b(argv[0]);return 'trail='+P.trail;
+    case 'visible': P.visible=b(argv[0]);return 'visible='+P.visible;
+    case 'invisible': P.visible=argv.length?!b(argv[0]):false;return 'visible='+P.visible;
+    case 'alpha': P.alpha=Math.max(0,Math.min(1,argv[0]!=null?Number(argv[0]):1));return 'alpha='+P.alpha;
+    case 'size': {const sc=argv[0]!=null?Number(argv[0]):1;P.w=P.baseW*sc;P.h=P.baseH*sc;return 'size=x'+sc;}
+    case 'color': case 'bodycolor': P.bodyColor=argv[0]||P.bodyColor;return 'bodycolor='+P.bodyColor;
+    case 'headcolor': P.headColor=argv[0]||P.headColor;return 'headcolor='+P.headColor;
+    case 'char': case 'name': P.name=argv[0]!=null?String(argv[0]):P.name;return 'char='+P.name;
+    case 'goto': P.x=argv[0]!=null?Number(argv[0]):P.x;P.y=argv[1]!=null?Number(argv[1]):P.y;return 'goto('+P.x+','+P.y+')';
+    case 'move': P.x+=(argv[0]!=null?Number(argv[0]):0);return 'move';
+    case 'jump': if(P.onGround&&!flyMode){P.vy=-P.jump;P.onGround=false;}return 'jump';
+    case 'kill': {const t=argv[0]!=null?String(argv[0]):'';return 'kill='+t+' → '+(killDummy(t)?'성공':'대상 없음');}
+    case 'announce': announce(argv[0]!=null?String(argv[0]):'');return 'announce';
+    case 'say': showBubble(argv[0]!=null?String(argv[0]):'');return 'say';
+    case 'ff': P.shield=b(argv[0]);return 'ff='+P.shield;
+    case 'dance': P.dancing=b(argv[0]);if(P.dancing)P.sitting=false;return 'dance='+P.dancing;
+    case 'sit': P.sitting=b(argv[0]);if(P.sitting)P.dancing=false;else P.h=P.baseH;return 'sit='+P.sitting;
+    case 'fire': P.fireOn=b(argv[0]);return 'fire='+P.fireOn;
+    case 'smoke': P.smokeOn=b(argv[0]);return 'smoke='+P.smokeOn;
+    case 'sparkles': P.sparkleOn=b(argv[0]);return 'sparkles='+P.sparkleOn;
+    case 'explode': explodeAt(P.x+P.w/2,P.y+P.h/2);return 'explode';
+    case 'time': dayNight=Math.max(0,Math.min(1,argv[0]!=null?Number(argv[0]):1));return 'time='+dayNight;
+    case 'ambient': ambientLevel=Math.max(0,Math.min(1,argv[0]!=null?Number(argv[0]):1));return 'ambient='+ambientLevel;
+    case 'fog': fogOn=b(argv[0]);return 'fog='+fogOn;
+    default: return null;
+  }
+}
+
+// 명령어 처리 본체
+const PYBR_NAMES=['fly','unfly','speed','jumppower','god','ungod','freeze','unfreeze','trail','untrail',
+  'visible','invisible','alpha','size','color','bodycolor','headcolor','char','name','goto','move','jump',
+  'kill','announce','say','ff','unff','dance','undance','sit','unsit','fire','nofire','smoke','nosmoke',
+  'sparkles','nosparkles','explode','time','ambient','fog','unfog'];
+function runHDCommand(text){
+  let raw=(text!=null?text:'').trim();
+  if(!raw)return;
+  cmdLog(':'+raw,'cl-cmd');
+  if(raw.startsWith('/'))raw=raw.slice(1);
+  const parts=raw.split(/\s+/);
+  const cmd=parts[0].toLowerCase();
+  const args=parts.slice(1);
+  const targetIsMe=args[0]&&args[0].toLowerCase()==='me';
+  const rest=targetIsMe?args.slice(1):args;
+  const num=v=>parseFloat(v);
+
+  try{
+    switch(cmd){
+      case 'help': case 'cmds': case 'commands': showCmdHelp();break;
+
+      // ── 이동/물리 ──
+      case 'fly': flyMode=true;syncFlyUI();cmdLog('fly: 비행 모드 ON','cl-ok');break;
+      case 'unfly': case 'nofly': flyMode=false;syncFlyUI();cmdLog('unfly: 비행 모드 OFF','cl-ok');break;
+      case 'speed': P.speed=num(rest[0])||P.baseSpeed;cmdLog('speed: 이동속도 '+P.speed,'cl-ok');break;
+      case 'jumppower': case 'jp': P.jump=num(rest[0])||P.baseJump;cmdLog('jumppower: 점프력 '+P.jump,'cl-ok');break;
+      case 'resetspeed': P.speed=P.baseSpeed;cmdLog('resetspeed 완료','cl-ok');break;
+      case 'resetjump': P.jump=P.baseJump;cmdLog('resetjump 완료','cl-ok');break;
+      case 'god': P.god=true;cmdLog('god: 무적 모드 ON','cl-ok');break;
+      case 'ungod': P.god=false;cmdLog('god: 무적 모드 OFF','cl-ok');break;
+      case 'freeze': P.frozen=true;cmdLog('freeze: 캐릭터 동결','cl-ok');break;
+      case 'unfreeze': case 'thaw': P.frozen=false;cmdLog('unfreeze: 동결 해제','cl-ok');break;
+      case 'respawn': case 'r': case 'tp': case 'reset': resetP();cmdLog('respawn 완료','cl-ok');break;
+      case 'goto': case 'teleport': P.x=num(rest[0])||P.x;P.y=num(rest[1])||P.y;cmdLog('teleport 완료','cl-ok');break;
+      case 'trail': P.trail=true;cmdLog('trail: 이동 흔적 ON','cl-ok');break;
+      case 'untrail': P.trail=false;cmdLog('trail: 이동 흔적 OFF','cl-ok');break;
+
+      // ── 외형 ──
+      case 'char': case 'name': P.name=rest.join(' ')||'Player';cmdLog('char: 이름이 "'+P.name+'"로 변경됨','cl-ok');break;
+      case 'size': case 'scale': {
+        const sc=num(rest[0])||1;P.w=P.baseW*sc;P.h=P.baseH*sc;cmdLog('size: 크기 x'+sc,'cl-ok');break;
+      }
+      case 'resetsize': P.w=P.baseW;P.h=P.baseH;cmdLog('resetsize 완료','cl-ok');break;
+      case 'bodycolor': case 'color': P.bodyColor=rest[0]||P.bodyColor;cmdLog('bodycolor: '+P.bodyColor,'cl-ok');break;
+      case 'headcolor': P.headColor=rest[0]||P.headColor;cmdLog('headcolor: '+P.headColor,'cl-ok');break;
+      case 'invisible': case 'invis': P.visible=false;cmdLog('invisible: 캐릭터 숨김','cl-ok');break;
+      case 'visible': case 'show': P.visible=true;cmdLog('visible: 캐릭터 보임','cl-ok');break;
+      case 'alpha': case 'transparency': P.alpha=Math.max(0,Math.min(1,num(rest[0])??1));cmdLog('alpha: '+P.alpha,'cl-ok');break;
+
+      // ── 채팅/안내 ──
+      case 'announce': case 'm': case 'message': announce(rest.join(' '));cmdLog('announce 전송됨','cl-ok');break;
+      case 'h': case 'hint': cmdLog('[힌트] '+rest.join(' '),'cl-info');break;
+      case 'pm': case 'whisper': cmdLog('[개인 메시지] '+rest.join(' '),'cl-info');break;
+      case 'say': case 'chat': showBubble(rest.join(' '));cmdLog('say: 말풍선 출력','cl-ok');break;
+
+      // ── 멀티/모드 ──
+      case '2play': case 'twoplay': enable2Play();break;
+      case 'un2play': disable2Play();break;
+
+      // ── 보호막/포즈/이펙트 ──
+      case 'ff': case 'forcefield': P.shield=true;cmdLog('ff: 보호막 ON','cl-ok');break;
+      case 'unff': P.shield=false;cmdLog('ff: 보호막 OFF','cl-ok');break;
+      case 'dance': P.dancing=true;P.sitting=false;cmdLog('dance: 춤 시작','cl-ok');break;
+      case 'undance': P.dancing=false;cmdLog('dance: 춤 정지','cl-ok');break;
+      case 'sit': P.sitting=true;P.dancing=false;cmdLog('sit: 앉기','cl-ok');break;
+      case 'unsit': P.sitting=false;P.h=P.baseH;cmdLog('sit: 일어나기','cl-ok');break;
+      case 'fire': P.fireOn=true;cmdLog('fire: 화염 효과 ON','cl-ok');break;
+      case 'nofire': P.fireOn=false;cmdLog('fire: 화염 효과 OFF','cl-ok');break;
+      case 'smoke': P.smokeOn=true;cmdLog('smoke: 연기 효과 ON','cl-ok');break;
+      case 'nosmoke': P.smokeOn=false;cmdLog('smoke: 연기 효과 OFF','cl-ok');break;
+      case 'sparkles': P.sparkleOn=true;cmdLog('sparkles: 반짝임 효과 ON','cl-ok');break;
+      case 'nosparkles': P.sparkleOn=false;cmdLog('sparkles: 반짝임 효과 OFF','cl-ok');break;
+      case 'explode': explodeAt(P.x+P.w/2,P.y+P.h/2);cmdLog('explode: 폭발 효과!','cl-ok');break;
+
+      // ── 환경 ──
+      case 'time': dayNight=Math.max(0,Math.min(1,num(rest[0])??1));cmdLog('time: 밝기(낮/밤) '+dayNight,'cl-ok');break;
+      case 'ambient': ambientLevel=Math.max(0,Math.min(1,num(rest[0])??1));cmdLog('ambient: 주변광 '+ambientLevel,'cl-ok');break;
+      case 'fog': fogOn=true;cmdLog('fog: 안개 ON','cl-ok');break;
+      case 'unfog': fogOn=false;cmdLog('fog: 안개 OFF','cl-ok');break;
+
+      // ── 더미 제어 ──
+      case 'kill': {
+        const target=args.join(' ').trim();
+        if(!target){cmdLog('사용법: kill dummy1 (또는 bummy2)','cl-err');break;}
+        if(killDummy(target))cmdLog('kill: '+target+' 처치! (4초 후 리스폰)','cl-ok');
+        else cmdLog('대상을 찾을 수 없습니다: '+target,'cl-err');
+        break;
+      }
+      case 'skill-creator': {
+        const target=args.join(' ').trim();
+        if(!target){cmdLog('사용법: skill-creator dummy1','cl-err');break;}
+        if(killDummy(target))cmdLog('skill-creator: '+target+' 즉시 처치! 잠시 후 리스폰됩니다.','cl-ok');
+        else cmdLog('대상을 찾을 수 없습니다: '+target,'cl-err');
+        break;
+      }
+
+      // ── Python 연동 ──
+      case 'run': case 'exec': case 'py': {
+        const code=rest.join(' ');
+        if(!code){cmdLog('사용법: run <python 코드>','cl-err');break;}
+        sw('editor');codeArea.value=code;updateLineNums();runCode();
+        cmdLog('Python 코드 실행됨 (에디터에 반영)','cl-ok');
+        break;
+      }
+
+      default:
+        cmdLog('알 수 없는 명령어: '+cmd+' (help 입력)','cl-err');
+    }
+  }catch(e){cmdLog('오류: '+e.message,'cl-err');}
+}
+function syncFlyUI(){
+  const el=document.getElementById('mob-fly-toggle');
+  if(el)el.textContent = flyMode ? '✈ 플라이 ON' : '✈ 플라이 OFF';
+}
+function showCmdHelp(){
+  cmdLog('━━━ HD 어드민 명령어 (2026) ━━━','cl-info');
+  cmdLog('fly / unfly / speed n / jumppower n / god / ungod','cl-info');
+  cmdLog('freeze / unfreeze / respawn / goto x y / trail / untrail','cl-info');
+  cmdLog('char 이름 / size n / bodycolor #hex / headcolor #hex','cl-info');
+  cmdLog('invisible / visible / alpha 0~1 / ff / unff','cl-info');
+  cmdLog('announce 메시지 / h 메시지 / pm 메시지 / say 메시지','cl-info');
+  cmdLog('2play / un2play  (두번째 플레이어 IJKL+U)','cl-info');
+  cmdLog('kill dummy1 / kill bummy2 / skill-creator dummy1','cl-info');
+  cmdLog('dance / undance / sit / unsit / explode','cl-info');
+  cmdLog('fire / nofire / smoke / nosmoke / sparkles / nosparkles','cl-info');
+  cmdLog('time 0~1 / ambient 0~1 / fog / unfog  (환경 효과)','cl-info');
+  cmdLog('run print("hello")  ← 파이썬 코드 즉시 실행','cl-info');
+  cmdLog('예: fly me / speed me 30 / char me Neo / dance me','cl-info');
+  cmdLog('★ 파이썬 에디터에서도 fly(True), speed(20), dance(True) 처럼','cl-info');
+  cmdLog('  print()뿐 아니라 명령어 함수를 직접 호출해 캐릭터를 조종할 수 있어요!','cl-info');
+}
+function resetP(){
+  P.x=100;P.y=380;P.vx=0;P.vy=0;P.h=P.baseH;crouching=false;
+}
+function updateCam(){
+  camX+=(P.x-W*0.35-camX)*0.1;
+  camY+=(P.y-H*0.5-camY)*0.1;
+  camY=Math.max(-300,Math.min(150,camY));
+}
+
+// Speech bubble — follows character every frame while active, queues multiple prints
+let bubbleTimer=null;
+let bubbleText='';
+let bubbleActive=false;
+let bubbleQueue=[];
+let bubbleQueueRunning=false;
+function showBubble(text){
+  bubbleQueue.push(text);
+  if(!bubbleQueueRunning)runBubbleQueue();
+}
+function runBubbleQueue(){
+  if(bubbleQueue.length===0){bubbleQueueRunning=false;return;}
+  bubbleQueueRunning=true;
+  const text=bubbleQueue.shift();
+  bubbleText=text.length>80?text.slice(0,80)+'...':text;
+  bubbleActive=true;
+  const bub=document.getElementById('bubble');
+  bub.textContent=bubbleText;
+  bub.style.display='block';
+  updateBubblePos();
+  if(bubbleTimer)clearTimeout(bubbleTimer);
+  bubbleTimer=setTimeout(()=>{
+    bubbleActive=false;bub.style.display='none';
+    setTimeout(runBubbleQueue,120);
+  },1600);
+}
+function updateBubblePos(){
+  if(!bubbleActive)return;
+  const bub=document.getElementById('bubble');
+  const bx=P.x-camX,by=P.y-camY-50;
+  let lx=Math.max(4,Math.min(bx,W-170));
+  let ly=Math.max(4,by);
+  bub.style.left=lx+'px';bub.style.top=ly+'px';
+}
+
+function drawChar(x,y,w,h,face,anim,bc,hc,onG,alpha){
+  if(alpha===0)return;
+  ctx.save();ctx.globalAlpha=alpha==null?1:alpha;
+  const px=x-camX,py=y-camY,s=w/26;
+  const leg=onG?Math.sin(anim)*5*s:0;
+  ctx.fillStyle='rgba(0,255,65,0.05)';
+  ctx.beginPath();ctx.ellipse(px+w/2,py+h+2,w/2,3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1a4a8a';
+  ctx.fillRect(px+2*s,py+h-12*s+leg,8*s,12*s);
+  ctx.fillRect(px+w-10*s,py+h-12*s-leg,8*s,12*s);
+  ctx.fillStyle=bc;ctx.fillRect(px,py+14*s,w,h-22*s);
+  const arm=onG?Math.sin(anim)*7*s:0;
+  ctx.fillRect(px-5*s,py+16*s+arm,5*s,10*s);
+  ctx.fillRect(px+w,py+16*s-arm,5*s,10*s);
+  ctx.fillStyle=hc;ctx.fillRect(px+2*s,py,w-4*s,15*s);
+  const ex=face>0?px+w-9*s:px+3*s;
+  ctx.fillStyle='#222';ctx.fillRect(ex,py+4*s,5*s,5*s);
+  ctx.fillStyle='#fff';ctx.fillRect(ex+(face>0?2:1)*s,py+5*s,2*s,2*s);
+  ctx.restore();
+}
+function drawGame(){
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(0,50,0,0.12)';ctx.lineWidth=0.5;
+  for(let x=(-camX%50);x<W;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=(-camY%50);y<H;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // platforms
+  PLATS.forEach(pl=>{
+    ctx.fillStyle=pl.c;ctx.fillRect(pl.x-camX,pl.y-camY,pl.w,pl.h);
+    ctx.strokeStyle='#00ff4118';ctx.lineWidth=1;ctx.strokeRect(pl.x-camX,pl.y-camY,pl.w,pl.h);
+    ctx.strokeStyle='#00ff410a';
+    for(let gx=pl.x;gx<pl.x+pl.w;gx+=20){
+      ctx.beginPath();ctx.moveTo(gx-camX,pl.y-camY);ctx.lineTo(gx-camX,pl.y-camY+pl.h);ctx.stroke();
+    }
+  });
+  // dummies
+  ctx.font='9px Courier New';ctx.textAlign='center';
+  DUMMIES.forEach(d=>{
+    if(d.dead)return;
+    ctx.fillStyle='#555';ctx.fillText(d.name,d.x-camX+d.w/2,d.y-camY-7);
+    drawChar(d.x,d.y,d.w,d.h,-1,0,d.bodyColor||'#888',d.headColor||'#aaa',d.onGround,1);
+  });
+  // player trail
+  if(P.trail){
+    P.trailPts.push({x:P.x+P.w/2,y:P.y+P.h/2});
+    if(P.trailPts.length>18)P.trailPts.shift();
+    P.trailPts.forEach((pt,i)=>{
+      ctx.fillStyle='rgba(0,255,65,'+(i/P.trailPts.length*0.35)+')';
+      ctx.beginPath();ctx.arc(pt.x-camX,pt.y-camY,5,0,Math.PI*2);ctx.fill();
+    });
+  } else P.trailPts.length=0;
+  // player
+  if(P.visible){
+    drawChar(P.x,P.y,P.w,P.h,P.face,P.anim,P.bodyColor,P.headColor,P.onGround,P.alpha);
+    if(P.shield){
+      ctx.save();ctx.globalAlpha=0.55;ctx.strokeStyle='#00ccff';ctx.lineWidth=2;
+      ctx.beginPath();ctx.ellipse(P.x+P.w/2-camX,P.y+P.h/2-camY,P.w*0.9,P.h*0.75,0,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+    }
+    ctx.fillStyle=P.god?'#ffff00':'#00ff41';ctx.fillText(P.name,P.x-camX+P.w/2,P.y-camY-7);
+  }
+  // player2 (2play)
+  if(player2){
+    drawChar(player2.x,player2.y,player2.w,player2.h,player2.face,player2.anim,player2.bodyColor,player2.headColor,player2.onGround,1);
+    ctx.fillStyle='#ff6699';ctx.fillText(player2.name,player2.x-camX+player2.w/2,player2.y-camY-7);
+  }
+  ctx.textAlign='left';
+  drawParticles();
+  drawEnvOverlay();
+}
+function gameLoop(){updateP();updateP2();updateDM();checkDummyRespawns();updateCam();updateParticles();drawGame();updateBubblePos();requestAnimationFrame(gameLoop);}
+
+// ═══════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════
+const TABS=['editor','block','ai','inspector','hdadmin'];
+function sw(tab){
+  TABS.forEach(t=>{
+    document.getElementById('t-'+t).classList.toggle('active',t===tab);
+    document.getElementById('pane-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='inspector')showAllCmds();
+}
+
+// HD어드민 헬퍼
+function hdTog(cmd,onId,offId){
+  runHDCommand(cmd);
+  const isOn=(cmd!=='ungod'&&cmd!=='unfly'&&cmd!=='unfreeze'&&cmd!=='untrail'&&cmd!=='undance'&&cmd!=='unsit'&&cmd!=='unff'&&cmd!=='nofire'&&cmd!=='nosmoke'&&cmd!=='nosparkles'&&cmd!=='unfog'&&cmd!=='un2play'&&cmd!=='invisible');
+  const onEl=document.getElementById(onId),offEl=document.getElementById(offId);
+  if(onEl)onEl.classList.toggle('active',isOn);
+  if(offEl)offEl.classList.toggle('active',!isOn);
+}
+function hdSlReset(slId,valId,num,display){
+  const sl=document.getElementById(slId),vl=document.getElementById(valId);
+  if(sl)sl.value=num;
+  if(vl)vl.textContent=display||String(num);
+}
+
+// ═══════════════════════════════════════════
+//  LINE NUMBERS
+// ═══════════════════════════════════════════
+const codeArea=document.getElementById('codeArea');
+const lineNums=document.getElementById('lineNums');
+function updateLineNums(){
+  const lines=codeArea.value.split('\n').length;
+  lineNums.textContent=Array.from({length:lines},(_,i)=>i+1).join('\n');
+  lineNums.scrollTop=codeArea.scrollTop;
+}
+codeArea.addEventListener('input',updateLineNums);
+codeArea.addEventListener('scroll',()=>{lineNums.scrollTop=codeArea.scrollTop;});
+codeArea.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();const s=codeArea.selectionStart,end=codeArea.selectionEnd;codeArea.value=codeArea.value.substring(0,s)+'    '+codeArea.value.substring(end);codeArea.selectionStart=codeArea.selectionEnd=s+4;updateLineNums();}
+});
+
+// ═══════════════════════════════════════════
+//  PYTHON INTERPRETER
+// ═══════════════════════════════════════════
+function getCode(){return document.getElementById('codeArea').value;}
+let printOutputs=[];
+
+function outLine(text,cls,tid){
+  const o=document.getElementById(tid||'outputArea');
+  const d=document.createElement('div');d.className=cls||'o-out';d.textContent=text;
+  o.appendChild(d);o.scrollTop=o.scrollHeight;
+}
+
+function clearEditor(){
+  codeArea.value='';
+  document.getElementById('outputArea').innerHTML='<div class="o-sys"># 에디터가 초기화되었습니다.</div>';
+  updateLineNums();
+}
+
+function runCode(){
+  const code=codeArea.value.trim();
+  const o=document.getElementById('outputArea');
+  o.innerHTML='<div class="o-sys">>>> 실행 중...</div>';
+  printOutputs=[];
+  if(!code){outLine('# 코드를 입력하세요.','o-sys');return;}
+  interpretPy(code,'outputArea');
+}
+
+function interpretPy(code,tid){
+  const lines=code.split('\n');
+  const env={};let i=0;
+
+  function evalE(expr){
+    expr=expr.trim();
+    // string
+    if((expr.startsWith("'")&&expr.endsWith("'"))||(expr.startsWith('"')&&expr.endsWith('"')))return expr.slice(1,-1);
+    // fstring
+    if(/^f['"]/.test(expr)){
+      const q=expr[1];
+      let s=expr.slice(2,-1);
+      return s.replace(/\{([^}]+)\}/g,(_,k)=>{try{return String(evalE(k));}catch{return '{'+k+'}'}});
+    }
+    // number
+    if(/^-?\d+(\.\d+)?$/.test(expr))return parseFloat(expr);
+    if(expr==='True')return true;if(expr==='False')return false;if(expr==='None')return null;
+    // list
+    if(expr.startsWith('[')&&expr.endsWith(']')){
+      const inner=expr.slice(1,-1).trim();
+      return inner?splitA(inner).map(a=>evalE(a.trim())):[];
+    }
+    // builtin calls
+    const bm=expr.match(/^(\w+)\((.*)?\)$/s);
+    if(bm){
+      const fn=bm[1],arg=bm[2]||'';
+      if(fn==='len'){const v=evalE(arg);return(typeof v==='string'||Array.isArray(v))?v.length:0;}
+      if(fn==='range'){
+        const ps=splitA(arg).map(a=>parseInt(evalE(a.trim())));
+        const s2=ps.length>1?ps[0]:0,e2=ps.length>1?ps[1]:ps[0],st=ps[2]||1;
+        const arr=[];for(let x=s2;x<e2;x+=st)arr.push(x);return arr;
+      }
+      if(fn==='str')return String(evalE(arg));
+      if(fn==='int')return parseInt(evalE(arg));
+      if(fn==='float')return parseFloat(evalE(arg));
+      if(fn==='list'){const v=evalE(arg);return Array.isArray(v)?v:[];}
+      if(fn==='abs')return Math.abs(evalE(arg));
+      if(fn==='max'){const ps=splitA(arg).map(a=>evalE(a.trim()));return Math.max(...ps);}
+      if(fn==='min'){const ps=splitA(arg).map(a=>evalE(a.trim()));return Math.min(...ps);}
+      if(fn==='sum'){const v=evalE(arg);return Array.isArray(v)?v.reduce((a,b)=>a+b,0):0;}
+      if(fn==='input'){const p=arg?evalE(arg):'';return window.prompt(String(p))||'';}
+      if(fn==='print'){
+        const ps=splitA(arg).map(a=>{try{return String(evalE(a.trim()));}catch{return'[err]';}});
+        const res=ps.join(' ');
+        outLine(res,'o-out',tid);printOutputs.push(res);showBubble(res);return null;
+      }
+      if(fn==='hd'){
+        const cv=evalE(arg);
+        runHDCommand(String(cv));
+        outLine('[hd] '+cv,'o-sys',tid);return null;
+      }
+      // ── print() 뿐 아니라 다른 명령어도 캐릭터에 바로 적용 ──
+      if(PYBR_NAMES.includes(fn)){
+        const argv=arg?splitA(arg).map(a=>{try{return evalE(a.trim());}catch{return a.trim().replace(/^['"]|['"]$/g,'');}}):[];
+        let bridgeName=fn,forced;
+        if(fn==='unfly'){bridgeName='fly';forced=false;}
+        else if(fn==='ungod'){bridgeName='god';forced=false;}
+        else if(fn==='unfreeze'){bridgeName='freeze';forced=false;}
+        else if(fn==='untrail'){bridgeName='trail';forced=false;}
+        else if(fn==='undance'){bridgeName='dance';forced=false;}
+        else if(fn==='unsit'){bridgeName='sit';forced=false;}
+        else if(fn==='unff'){bridgeName='ff';forced=false;}
+        else if(fn==='nofire'){bridgeName='fire';forced=false;}
+        else if(fn==='nosmoke'){bridgeName='smoke';forced=false;}
+        else if(fn==='nosparkles'){bridgeName='sparkles';forced=false;}
+        else if(fn==='unfog'){bridgeName='fog';forced=false;}
+        if(forced!==undefined&&argv.length===0)argv.push(forced);
+        const r=pyBridge(bridgeName,argv);
+        outLine('[캐릭터] '+fn+'('+argv.map(v=>JSON.stringify(v)).join(', ')+') → '+r,'o-sys',tid);
+        return r;
+      }
+      // user-defined
+      if(fn in env && typeof env[fn]==='function') return env[fn]();
+    }
+    // variable
+    if(/^[a-zA-Z_]\w*$/.test(expr)){if(expr in env)return env[expr];throw new Error("NameError: '"+expr+"'");}
+    // arithmetic / comparison
+    try{
+      const safe=expr.replace(/\b([a-zA-Z_]\w*)\b/g,(_,n)=>{
+        if(n in env)return JSON.stringify(env[n]);
+        if(['True','False','None','and','or','not','in','is'].includes(n))return n;
+        throw new Error("NameError: '"+n+"'");
+      }).replace(/\band\b/g,'&&').replace(/\bor\b/g,'||').replace(/\bnot\b/g,'!').replace(/\bTrue\b/g,'true').replace(/\bFalse\b/g,'false').replace(/\bNone\b/g,'null');
+      return Function('"use strict";return ('+safe+')')();
+    }catch(e){throw new Error('SyntaxError: '+expr);}
+  }
+
+  function splitA(s){const a=[];let d=0,cur='',inQ=false,qc='';
+    for(const c of s){if(!inQ&&(c==="'"||c==='"')){inQ=true;qc=c;cur+=c;}
+    else if(inQ&&c===qc){inQ=false;cur+=c;}
+    else if(!inQ&&'([{'.includes(c)){d++;cur+=c;}
+    else if(!inQ&&')]}'.includes(c)){d--;cur+=c;}
+    else if(!inQ&&c===','&&d===0){a.push(cur.trim());cur='';}
+    else cur+=c;}if(cur.trim())a.push(cur.trim());return a;}
+
+  function getInd(line){let n=0;for(const c of line){if(c===' ')n++;else if(c==='\t')n+=4;else break;}return n;}
+  function colBlock(si,baseInd){const b=[];let j=si;
+    while(j<lines.length){const l=lines[j];if(!l.trim()||l.trim().startsWith('#')){b.push('');j++;continue;}if(getInd(l)<=baseInd)break;b.push(l.trim());j++;}return{b,next:j};}
+  function exBlock(blines){for(const bl of blines){if(!bl.trim()||bl.trim().startsWith('#'))continue;exLine(bl.trim());}}
+
+  function exLine(line){
+    line=line.trim();if(!line||line.startsWith('#'))return;
+    // print
+    if(line.startsWith('print(')){
+      const m=line.match(/^print\((.*)?\)$/s);
+      if(!m){outLine('[SyntaxError] '+line,'o-err',tid);return;}
+      const ps=splitA(m[1]).map(a=>{try{const v=evalE(a.trim());return v===null?'None':String(v);}catch(e){return '['+e.message+']';}});
+      const res=ps.join(' ');
+      outLine(res,/^-?\d+\.?\d*$/.test(res.trim())?'o-num':'o-out',tid);
+      printOutputs.push(res);showBubble(res);return;
+    }
+    // augmented assign
+    const aug=line.match(/^([a-zA-Z_]\w*)\s*(\+=|-=|\*=|\/=|%=)(.+)$/);
+    if(aug){try{const cur=env[aug[1]]||0,val=evalE(aug[3].trim());
+      if(aug[2]==='+=')env[aug[1]]=cur+val;else if(aug[2]==='-=')env[aug[1]]=cur-val;
+      else if(aug[2]==='*=')env[aug[1]]=cur*val;else if(aug[2]==='/=')env[aug[1]]=cur/val;
+      else if(aug[2]==='%=')env[aug[1]]=cur%val;}catch(e){outLine('['+e.message+']','o-err',tid);}return;}
+    // assignment
+    const ass=line.match(/^([a-zA-Z_]\w*)\s*=(?!=)\s*(.+)$/);
+    if(ass&&!['if','while','for'].some(k=>line.startsWith(k))){
+      try{env[ass[1]]=evalE(ass[2]);}catch(e){outLine('['+e.message+']','o-err',tid);}return;}
+    // standalone expr (e.g., function call)
+    try{evalE(line);}catch{outLine('[실행불가] '+line,'o-sys',tid);}
+  }
+
+  try{
+    while(i<lines.length){
+      const raw=lines[i],line=raw.trim();
+      if(!line||line.startsWith('#')){i++;continue;}
+      const ind=getInd(raw);
+
+      // for
+      if(/^for\s+\w+\s+in\s+.+:$/.test(line)){
+        const m=line.match(/^for\s+(\w+)\s+in\s+(.+):$/);
+        if(m){const{b,next}=colBlock(i+1,ind);const iter=evalE(m[2]);
+          for(const val of(Array.isArray(iter)?iter:[])){env[m[1]]=val;exBlock(b);}i=next;continue;}
+      }
+      // while
+      if(/^while\s+.+:$/.test(line)){
+        const m=line.match(/^while\s+(.+):$/);
+        if(m){const{b,next}=colBlock(i+1,ind);let g=0;
+          while(g++<1000){let cv;try{cv=evalE(m[1]);}catch{break;}if(!cv)break;exBlock(b);}i=next;continue;}
+      }
+      // if
+      if(/^if\s+.+:$/.test(line)){
+        const m=line.match(/^if\s+(.+):$/);
+        if(m){let cv;try{cv=evalE(m[1]);}catch(e){outLine('['+e.message+']','o-err',tid);i++;continue;}
+          const{b,next}=colBlock(i+1,ind);if(cv)exBlock(b);i=next;continue;}
+      }
+      // def
+      if(/^def\s+\w+\s*\(/.test(line)&&line.endsWith(':')){
+        const nm=line.match(/^def\s+(\w+)/)[1];
+        const{b,next}=colBlock(i+1,ind);
+        env[nm]=()=>{exBlock(b);return null;};
+        outLine('# 함수 정의됨: '+nm+'()','o-sys',tid);i=next;continue;
+      }
+      // function call with ()
+      if(/^\w+\(\)$/.test(line)&&(line.slice(0,-2) in env)){
+        const fn=line.slice(0,-2);if(typeof env[fn]==='function')env[fn]();i++;continue;
+      }
+      exLine(line);i++;
+    }
+    outLine('# 실행 완료.','o-sys',tid);
+  }catch(e){outLine('[오류] '+e.message,'o-err',tid);}
+}
+
+// ─── Examples ───────────────────────────
+const EXAMPLES=[
+`# 예제 1: 기본 출력
+print('Hello, Python!')
+print('매트릭스에 오신걸 환영합니다!')
+print('파이썬은 재미있어요!')`,
+
+`# 예제 2: 변수와 연산
+x = 10
+y = 3
+print('더하기:', x + y)
+print('빼기:', x - y)
+print('곱하기:', x * y)
+print('나누기:', x / y)
+print('나머지:', x % y)`,
+
+`# 예제 3: for 반복문
+for i in range(1, 6):
+    print(i, '번째 반복!')`,
+
+`# 예제 4: while 반복문
+count = 5
+while count > 0:
+    print('카운트다운:', count)
+    count -= 1
+print('발사!')`,
+
+`# 예제 5: if 조건문
+score = 85
+if score >= 90:
+    print('A학점')
+if score >= 80:
+    print('B학점 이상!')
+if score < 60:
+    print('F학점')`,
+
+`# 예제 6: 리스트
+fruits = ['사과', '바나나', '딸기', '포도']
+for fruit in fruits:
+    print('과일:', fruit)
+print('개수:', len(fruits))`,
+
+`# 예제 7: 함수 만들기
+def greet():
+    print('안녕하세요!')
+    print('Python 함수입니다.')
+
+greet()
+greet()`,
+
+`# 예제 8: f-string 출력
+name = '네오'
+level = 99
+hp = 100
+print(f'플레이어: {name}')
+print(f'레벨: {level}')
+print(f'HP: {hp}')`,
+
+`# 예제 9: 숫자 합산
+total = 0
+for i in range(1, 11):
+    total += i
+print('1~10 합계:', total)`,
+
+`# 예제 10: 구구단
+for i in range(2, 5):
+    for j in range(1, 4):
+        print(i, 'x', j, '=', i * j)`,
+
+`# 예제 11: 명령어 함수로 캐릭터 조종
+char('네오')
+color('#ff3300')
+size(1.5)
+speed(12)
+fly(True)
+dance(True)
+sparkles(True)
+print('명령어 함수로 캐릭터를 바로 조종했어요!')`,
+];
+let exIdx=0;
+function loadExample(){codeArea.value=EXAMPLES[exIdx%EXAMPLES.length];exIdx++;updateLineNums();}
+
+function dlPy(){
+  const code=codeArea.value||'# Python code\n';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([code],{type:'text/plain'}));
+  a.download='matrix_code.py';a.click();
+}
+
+// ═══════════════════════════════════════════
+//  BLOCK CODING
+// ═══════════════════════════════════════════
+let blocks=[],bId=0;
+
+const BLOCK_INFO={
+  print:  {label:'print  출력',  color:'t-print', desc:'화면에 텍스트나 값을 출력합니다. 캐릭터가 말풍선으로 보여줍니다.'},
+  var:    {label:'변수   선언',  color:'t-var',   desc:'이름을 붙여 값을 저장합니다. x = 10 처럼 쓰면 x에 10이 저장됩니다.'},
+  if:     {label:'if     조건',  color:'t-if',    desc:'조건이 참(True)일 때만 내부 코드를 실행합니다.'},
+  for:    {label:'for    반복',  color:'t-for',   desc:'range(n)번 또는 리스트 요소만큼 반복합니다.'},
+  while:  {label:'while  반복',  color:'t-while', desc:'조건이 참인 동안 계속 반복합니다. 무한루프 주의!'},
+  func:   {label:'def    함수',  color:'t-func',  desc:'코드 묶음에 이름을 붙입니다. 나중에 이름()으로 호출합니다.'},
+  input:  {label:'input  입력',  color:'t-input', desc:'사용자에게 텍스트를 입력받아 변수에 저장합니다.'},
+  comment:{label:'#      주석',  color:'t-comment',desc:'코드 설명을 위한 메모입니다. 실행되지 않습니다.'},
+};
+
+const BLOCK_DEF={
+  print:  ()=>({type:'print',  val:'Hello!'}),
+  var:    ()=>({type:'var',    name:'x', val:'10'}),
+  if:     ()=>({type:'if',     cond:'x > 5', body:'print(x)'}),
+  for:    ()=>({type:'for',    vr:'i', end:'5', body:'print(i)'}),
+  while:  ()=>({type:'while',  cond:'count > 0', body:'print(count)\ncount -= 1'}),
+  func:   ()=>({type:'func',   name:'my_func', body:'print("함수 실행!")'}),
+  input:  ()=>({type:'input',  vr:'name', prompt:'이름을 입력하세요: '}),
+  comment:()=>({type:'comment',text:'여기에 설명을 입력하세요'}),
+};
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function blockToCode(b){
+  if(b.type==='comment')return'# '+b.text;
+  if(b.type==='print')  return"print('"+b.val+"')";
+  if(b.type==='var')    return b.name+' = '+b.val;
+  if(b.type==='if')     return'if '+b.cond+':\n    '+(b.body||'').split('\n').join('\n    ');
+  if(b.type==='for')    return'for '+b.vr+' in range('+b.end+'):\n    '+(b.body||'').split('\n').join('\n    ');
+  if(b.type==='while')  return'while '+b.cond+':\n    '+(b.body||'').split('\n').join('\n    ');
+  if(b.type==='func')   return'def '+b.name+'():\n    '+(b.body||'').split('\n').join('\n    ');
+  if(b.type==='input')  return b.vr+"=input('"+b.prompt+"')";
+  return'';
+}
+function blocksToCode(){return blocks.map(blockToCode).join('\n');}
+function addBlock(t){blocks.push({...BLOCK_DEF[t](),id:bId++});renderBlocks();}
+function removeBlock(id){blocks=blocks.filter(b=>b.id!==id);renderBlocks();}
+function moveUp(idx){if(idx>0){[blocks[idx-1],blocks[idx]]=[blocks[idx],blocks[idx-1]];renderBlocks();}}
+function updateBlock(id,k,v){const b=blocks.find(x=>x.id===id);if(b)b[k]=v;renderBlocks();}
+
+// 엔트리 스타일 블록 렌더링
+const EB_CLASS={print:'eb-print',var:'eb-var',if:'eb-if',for:'eb-for',while:'eb-while',func:'eb-func',input:'eb-input',comment:'eb-comment'};
+const EB_LABEL={print:'출력하기',var:'변수 선언',if:'만약 ~ 이라면',for:'반복하기 (for)',while:'반복하기 (while)',func:'함수 만들기',input:'입력받기',comment:'설명 주석'};
+
+function einp(val,key,id,w){
+  return `<input type="text" value="${esc(val)}" style="width:${w||80}px" oninput="updateBlock(${id},'${key}',this.value)">`;
+}
+function eta(val,key,id){
+  return `<textarea style="width:100%;min-height:34px" oninput="updateBlock(${id},'${key}',this.value)">${esc(val)}</textarea>`;
+}
+
+function renderBlocks(){
+  const bc=document.getElementById('blockCanvas');bc.innerHTML='';
+  blocks.forEach((b,idx)=>{
+    const cls=EB_CLASS[b.type]||'eb-comment';
+    const lbl=EB_LABEL[b.type]||b.type;
+    const div=document.createElement('div');
+    div.className='eblock '+cls;
+    div.id='eblock-'+b.id;
+
+    const acts=`<div class="eb-actions">${idx>0?`<button onclick="moveUp(${idx})" title="위로">↑</button>`:''}<button onclick="removeBlock(${b.id})" style="color:#ff6666">✕</button></div>`;
+
+    // 블록 타입별 내용
+    let rowHtml='';
+    let hasBody=false;let bodyCode='';
+
+    if(b.type==='print'){
+      rowHtml=`<span class="eb-lbl">출력</span>${einp(b.val,'val',b.id,160)}${acts}`;
+    } else if(b.type==='var'){
+      rowHtml=`<span class="eb-lbl">변수</span>${einp(b.name,'name',b.id,55)}<span class="eb-lbl">=</span>${einp(b.val,'val',b.id,90)}${acts}`;
+    } else if(b.type==='if'){
+      rowHtml=`<span class="eb-lbl">만약</span>${einp(b.cond,'cond',b.id,120)}<span class="eb-lbl">이라면</span>${acts}`;
+      hasBody=true;bodyCode=b.body;
+    } else if(b.type==='for'){
+      rowHtml=`<span class="eb-lbl">변수</span>${einp(b.vr,'vr',b.id,30)}<span class="eb-lbl">을</span>${einp(b.end,'end',b.id,36)}<span class="eb-lbl">번 반복</span>${acts}`;
+      hasBody=true;bodyCode=b.body;
+    } else if(b.type==='while'){
+      rowHtml=`<span class="eb-lbl">조건</span>${einp(b.cond,'cond',b.id,120)}<span class="eb-lbl">동안 반복</span>${acts}`;
+      hasBody=true;bodyCode=b.body;
+    } else if(b.type==='func'){
+      rowHtml=`<span class="eb-lbl">함수</span>${einp(b.name,'name',b.id,90)}<span class="eb-lbl">정의</span>${acts}`;
+      hasBody=true;bodyCode=b.body;
+    } else if(b.type==='input'){
+      rowHtml=`<span class="eb-lbl">변수</span>${einp(b.vr,'vr',b.id,45)}<span class="eb-lbl">에</span>${einp(b.prompt,'prompt',b.id,110)}<span class="eb-lbl">입력</span>${acts}`;
+    } else if(b.type==='comment'){
+      rowHtml=`<span class="eb-lbl">#</span>${einp(b.text,'text',b.id,180)}${acts}`;
+    }
+
+    let inner=`<div class="eblock-row">${rowHtml}</div>`;
+
+    if(hasBody){
+      // 내부 body textarea
+      const bodyRows=bodyCode.split('\n').length;
+      const bodyH=Math.max(34,bodyRows*18+8);
+      inner+=`<div class="eblock-body"><textarea style="width:100%;height:${bodyH}px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-family:'Courier New',monospace;font-size:10px;padding:4px 6px;border-radius:3px;outline:none;resize:vertical" oninput="updateBlock(${b.id},'body',this.value)">${esc(bodyCode)}</textarea></div>`;
+      inner+=`<div class="eblock-end">end</div>`;
+    }
+
+    // 미리보기
+    const preview=blockToCode(b);
+    inner+=`<div class="eblock-preview">${esc(preview)}</div>`;
+
+    div.innerHTML=inner;
+    bc.appendChild(div);
+  });
+}
+
+function runBlocks(){
+  const code=blocksToCode();
+  const bo=document.getElementById('blockBottom');bo.innerHTML='';
+  printOutputs=[];
+  const codeDiv=document.createElement('div');
+  codeDiv.style.cssText='color:var(--gdim);border-left:2px solid var(--gdim);padding-left:6px;margin-bottom:4px;white-space:pre;';
+  codeDiv.textContent='[ 생성된 코드 ]\n'+code;
+  bo.appendChild(codeDiv);
+  const sep=document.createElement('div');sep.style.cssText='color:var(--gdim);margin:3px 0;';sep.textContent='[ 출력 결과 ]';
+  bo.appendChild(sep);
+  document.getElementById('outputArea').innerHTML='';
+  interpretPy(code,'outputArea');
+  document.getElementById('outputArea').querySelectorAll('div').forEach(d=>{
+    if(d.className==='o-sys')return;
+    const nd=document.createElement('div');
+    nd.style.color=d.className==='o-err'?'#ff3300':d.className==='o-num'?'#00aaff':'#00c030';
+    nd.style.fontSize='10px';nd.textContent=d.textContent;bo.appendChild(nd);
+  });
+  bo.scrollTop=bo.scrollHeight;
+}
+
+function dlBlockPy(){
+  const code=blocksToCode()||'# 블록을 추가하세요\n';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([code],{type:'text/plain'}));
+  a.download='block_code.py';a.click();
+}
+function clearBlocks(){blocks=[];renderBlocks();document.getElementById('blockBottom').innerHTML='<div style="color:var(--gdim)">블록을 추가하고 실행을 누르세요.</div>';}
+function blockToEditor(){codeArea.value=blocksToCode();updateLineNums();sw('editor');}
+
+// ═══════════════════════════════════════════
+//  AI CHAT
+// ═══════════════════════════════════════════
+let aiHist=[];
+const SYS=`당신은 친절한 Python 전문 튜터 AI입니다.
+- 한국어로 답변하세요
+- 코드 예제를 항상 포함하세요
+- 초보자도 이해할 수 있게 쉽게 설명하세요
+- 질문에 제한 없이 무엇이든 답변하세요
+- 코드는 \`\`\`python ... \`\`\` 형식으로 작성하세요
+- 친근하고 격려하는 말투를 사용하세요`;
+
+document.getElementById('aiInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi();}
+});
+function aiQ(q){document.getElementById('aiInput').value=q;sendAi();}
+
+function addAiMsg(text,role){
+  const log=document.getElementById('aiLog');
+  const d=document.createElement('div');d.className='amsg '+role;d.textContent=text;
+  log.appendChild(d);log.scrollTop=log.scrollHeight;return d;
+}
+async function sendAi(){
+  const inp=document.getElementById('aiInput');
+  const text=inp.value.trim();if(!text)return;
+  inp.value='';
+  addAiMsg(text,'user');
+  aiHist.push({role:'user',content:text});
+  const th=addAiMsg('답변 생성 중...','thinking');
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:SYS,messages:aiHist})
+    });
+    const data=await r.json();
+    th.remove();
+    const reply=data.content?.[0]?.text||'[응답 없음]';
+    aiHist.push({role:'assistant',content:reply});
+    addAiMsg(reply,'bot');
+  }catch(e){th.remove();addAiMsg('[연결 오류] '+e.message,'sys');}
+}
+function clearAi(){aiHist=[];document.getElementById('aiLog').innerHTML='<div class="amsg sys">대화가 초기화되었습니다.</div>';}
+function askAiCode(){const c=getCode();if(!c.trim()){alert('에디터에 코드를 입력하세요!');return;}sw('ai');document.getElementById('aiInput').value='이 코드를 분석하고 각 줄을 설명해줘:\n\n'+c;sendAi();}
+
+// ═══════════════════════════════════════════
+//  COMMAND REFERENCE
+// ═══════════════════════════════════════════
+const CMD_GROUPS=[
+  {title:'🎮 파이썬 기본 문법', color:'#00ff41', cmds:[
+    {name:'print(값)',       desc:'화면에 출력. 캐릭터 말풍선으로도 나타남', ex:"print('안녕!')"},
+    {name:'변수 = 값',       desc:'변수에 값 저장', ex:'x = 10'},
+    {name:'if 조건:',        desc:'조건이 참이면 실행', ex:'if x > 5:\n    print("크다")'},
+    {name:'for 변수 in range(n):', desc:'n번 반복', ex:'for i in range(5):\n    print(i)'},
+    {name:'while 조건:',     desc:'조건이 참인 동안 반복', ex:'while x > 0:\n    x -= 1'},
+    {name:'def 함수명():',   desc:'함수 정의', ex:'def hello():\n    print("hi")'},
+    {name:'input(질문)',     desc:'사용자 입력 받기', ex:"name = input('이름?')"},
+    {name:'len(값)',         desc:'길이 반환', ex:"len('hello')  # 5"},
+    {name:'range(시작,끝)',  desc:'숫자 범위 생성', ex:'range(1, 10)'},
+    {name:'str() / int() / float()', desc:'타입 변환', ex:"int('42')  # 42"},
+    {name:'f-string',        desc:'변수 포함 문자열', ex:"f'{name}님 환영'"},
+  ]},
+  {title:'🕹️ 캐릭터 이동/물리', color:'#00aaff', cmds:[
+    {name:'fly(True/False)', desc:'비행 모드 ON/OFF', ex:'fly(True)'},
+    {name:'speed(숫자)',     desc:'이동 속도 변경 (기본 4)', ex:'speed(10)'},
+    {name:'jumppower(숫자)', desc:'점프력 변경 (기본 10)', ex:'jumppower(20)'},
+    {name:'goto(x, y)',      desc:'특정 좌표로 순간이동', ex:'goto(300, 200)'},
+    {name:'move(dx)',        desc:'현재 위치에서 x축으로 이동', ex:'move(100)'},
+    {name:'jump()',          desc:'점프 실행', ex:'jump()'},
+    {name:'freeze(True)',    desc:'캐릭터 동결/해제', ex:'freeze(True)'},
+    {name:'god(True)',       desc:'무적 모드', ex:'god(True)'},
+  ]},
+  {title:'🎨 캐릭터 외형', color:'#ffff00', cmds:[
+    {name:'char(이름)',      desc:'캐릭터 이름 변경', ex:"char('네오')"},
+    {name:'color(색상)',     desc:'몸 색상 변경 (#hex)', ex:"color('#ff0000')"},
+    {name:'headcolor(색상)', desc:'머리 색상 변경', ex:"headcolor('#ffcc00')"},
+    {name:'size(배율)',      desc:'크기 변경 (1=기본)', ex:'size(1.5)'},
+    {name:'alpha(0~1)',      desc:'투명도 (0=완전투명)', ex:'alpha(0.5)'},
+    {name:'visible(True)',   desc:'보이기/숨기기', ex:'visible(False)'},
+    {name:'trail(True)',     desc:'이동 흔적 효과', ex:'trail(True)'},
+  ]},
+  {title:'💬 말/알림', color:'#00ffcc', cmds:[
+    {name:'say(메시지)',     desc:'말풍선으로 대화', ex:"say('안녕하세요!')"},
+    {name:'announce(메시지)',desc:'화면 상단 알림 배너', ex:"announce('아이템 획득!')"},
+    {name:'print(값)',       desc:'출력 + 말풍선 동시에', ex:"print('Hello!')"},
+  ]},
+  {title:'✨ 이펙트/포즈', color:'#cc00ff', cmds:[
+    {name:'dance(True)',     desc:'춤 애니메이션', ex:'dance(True)'},
+    {name:'sit(True)',       desc:'앉기 포즈', ex:'sit(True)'},
+    {name:'fire(True)',      desc:'화염 파티클 효과', ex:'fire(True)'},
+    {name:'smoke(True)',     desc:'연기 파티클 효과', ex:'smoke(True)'},
+    {name:'sparkles(True)',  desc:'반짝임 파티클 효과', ex:'sparkles(True)'},
+    {name:'explode()',       desc:'폭발 효과', ex:'explode()'},
+    {name:'ff(True)',        desc:'보호막 표시', ex:'ff(True)'},
+  ]},
+  {title:'🌍 환경 효과', color:'#ff8800', cmds:[
+    {name:'time(0~1)',       desc:'시간대 밝기 (0=밤, 1=낮)', ex:'time(0.2)'},
+    {name:'ambient(0~1)',    desc:'주변광 밝기', ex:'ambient(0.5)'},
+    {name:'fog(True)',       desc:'안개 효과 ON/OFF', ex:'fog(True)'},
+  ]},
+];
+
+function showAllCmds(){
+  const ic=document.getElementById('inspContent');
+  ic.innerHTML='';
+  CMD_GROUPS.forEach(g=>{
+    const sec=document.createElement('div');
+    sec.style.cssText='border:1px solid #003b00;border-radius:4px;overflow:hidden;margin-bottom:4px;';
+    const hd=document.createElement('div');
+    hd.style.cssText=`background:#001500;padding:7px 10px;font-size:11px;font-weight:bold;color:${g.color};cursor:pointer;display:flex;justify-content:space-between;`;
+    hd.innerHTML=`${g.title} <span style="color:var(--gdim)">[${g.cmds.length}개] ▼</span>`;
+    const body=document.createElement('div');
+    body.style.cssText='padding:4px 6px;display:flex;flex-direction:column;gap:3px;';
+    g.cmds.forEach(c=>{
+      const row=document.createElement('div');
+      row.style.cssText='padding:5px 8px;background:#030f03;border-radius:3px;border:1px solid #001800;cursor:pointer;';
+      row.innerHTML=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><code style="color:${g.color};font-size:11px;font-family:'Courier New',monospace;background:#001200;padding:1px 6px;border-radius:2px;">${esc(c.name)}</code><span style="color:var(--gdim);font-size:10px;">${c.desc}</span><button onclick="insertCmd(${JSON.stringify(c.ex)})" style="margin-left:auto;background:#003000;border:1px solid var(--gdim);color:var(--gmid);font-size:9px;padding:1px 5px;cursor:pointer;border-radius:2px;">에디터에 삽입</button></div>`;
+      body.appendChild(row);
+    });
+    hd.onclick=()=>{
+      const hidden=body.style.display==='none';
+      body.style.display=hidden?'flex':'none';
+      hd.querySelector('span').textContent=`[${g.cmds.length}개] ${hidden?'▼':'▶'}`;
+    };
+    sec.appendChild(hd);sec.appendChild(body);ic.appendChild(sec);
+  });
+}
+function insertCmd(ex){
+  sw('editor');
+  const ca=document.getElementById('codeArea');
+  ca.value=(ca.value?ca.value+'\n':'')+ex;
+  updateLineNums();
+}
+function inspect(){showAllCmds();}
+function aiInspect(){showAllCmds();}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  PANEL TOGGLE
+// ═══════════════════════════════════════════
+// 모바일에서는 처음에 코딩창 닫혀있음 (게임 먼저 보이게)
+let panelOpen = window.innerWidth > 900;
+function applyPanelState(){
+  const rp = document.getElementById('rightPanel');
+  const arrow = document.getElementById('panelArrow');
+  const isMobile = window.innerWidth <= 900;
+  rp.classList.toggle('collapsed', !panelOpen);
+  if(isMobile){
+    arrow.textContent = panelOpen ? '▼ 코딩창 닫기' : '▲ 코딩창 열기';
+  } else {
+    arrow.textContent = panelOpen ? '>]' : '[<';
+  }
+  resizeGame();
+  requestAnimationFrame(resizeGame);
+  setTimeout(resizeGame,100);
+  setTimeout(resizeGame,280);
+  setTimeout(resizeGame,400);
+}
+function togglePanel(){
+  panelOpen = !panelOpen;
+  applyPanelState();
+}
+
+// ═══════════════════════════════════════════
+//  FLY MODE & CROUCH
+// ═══════════════════════════════════════════
+let flyMode = false;
+let crouching = false;
+
+// ═══════════════════════════════════════════
+//  MOBILE TOUCH CONTROLS (재배치된 레이아웃)
+// ═══════════════════════════════════════════
+(function setupMobileControls(){
+  const held = {};
+
+  function press(action){
+    held[action] = true;
+    if(action === 'up'){
+      if(flyMode){ /* fly: 위로 — updateP에서 jump key로 처리 */ }
+      else if(P.onGround){ P.vy = -P.jump; P.onGround = false; }
+    }
+    if(action === 'down'){
+      if(flyMode){
+        P.vy = P.speed; // 플라이 중 하강
+      } else {
+        crouching = true; P.h = P.baseH*0.6;
+      }
+    }
+  }
+  function release(action){
+    held[action] = false;
+    if(action==='down'){
+      if(flyMode){ /* 하강 멈춤은 updateP 감속 처리 */ }
+      else { crouching=false; P.h=P.baseH; }
+    }
+  }
+
+  function bindBtn(id, action){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); press(action); }, {passive:false});
+    el.addEventListener('touchend',   e=>{ e.preventDefault(); release(action); }, {passive:false});
+    el.addEventListener('mousedown',  ()=>press(action));
+    el.addEventListener('mouseup',    ()=>release(action));
+    el.addEventListener('mouseleave', ()=>release(action));
+  }
+
+  bindBtn('dpad-left',  'left');
+  bindBtn('dpad-right', 'right');
+  bindBtn('dpad-up',    'up');
+  bindBtn('dpad-down',  'down');
+
+  // Inject mobile held-key into updateP each frame
+  window._mobileHeld = held;
+})();
+
+// Detect touch device and show controls
+if('ontouchstart' in window || navigator.maxTouchPoints > 0){
+  document.getElementById('mobileTopLeft').classList.add('show');
+  document.getElementById('mobileBottomLeft').classList.add('show');
+  document.getElementById('mobileRight').classList.add('show');
+}
+resizeGame();
+updateLineNums();
+bindCmdEnter();
+applyPanelState(); // 초기 패널 상태 적용
+gameLoop();
+// 첫 로드 후 추가 리사이즈 (모바일 세로/가로 모두 대응)
+setTimeout(()=>{doFullResize();}, 200);
+setTimeout(()=>{doFullResize();}, 600);
+</script>
+</body>
+</html>
