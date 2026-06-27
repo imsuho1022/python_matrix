@@ -32,6 +32,7 @@ canvas{display:block;}
 }
 .tab-btn:hover{background:rgba(0,255,65,0.06);color:var(--gmid);}
 .tab-btn.active{background:rgba(0,255,65,0.11);color:var(--green);border-bottom:2px solid var(--green);}
+#musicToggle.active{background:rgba(0,255,65,0.11);color:var(--green);}
 .spacer{flex:1;}
 .topnote{padding:0 12px;font-size:10px;color:var(--gdim);}
 
@@ -103,6 +104,19 @@ canvas{display:block;}
   caret-color:var(--green);tab-size:4;
 }
 #codeArea::selection{background:#003b00;}
+#acBar{
+  display:none;flex-wrap:nowrap;gap:6px;overflow-x:auto;
+  padding:7px 8px;background:#001500;border-top:1px solid var(--gdim);
+  flex-shrink:0;-webkit-overflow-scrolling:touch;
+}
+.ac-item{
+  background:#002a00;border:1px solid var(--green);color:var(--green);
+  font-family:'Courier New',monospace;font-size:13px;font-weight:bold;
+  padding:7px 14px;border-radius:5px;cursor:pointer;white-space:nowrap;
+  flex-shrink:0;transition:background .12s;
+}
+.ac-item:hover, .ac-item:active{background:#004d00;}
+.ac-item .ac-rest{color:var(--gdim);font-weight:normal;}
 #outputArea{
   height:160px;flex-shrink:0;border-top:1px solid var(--gdim);
   background:#030a03;overflow-y:auto;padding:8px 10px;font-size:11px;line-height:1.7;
@@ -290,15 +304,8 @@ canvas{display:block;}
 #panelToggle .arrow{writing-mode:horizontal-tb;font-size:13px;}
 @media (max-width:900px){
   #panelToggle{
-    right:auto;top:auto;bottom:0;left:50%;
-    transform:translateX(-50%);
-    writing-mode:horizontal-tb;
-    border-radius:8px 8px 0 0;
-    border:1px solid var(--green);border-bottom:none;
-    padding:6px 24px;font-size:13px;
-    box-shadow:0 -2px 10px #00ff4122;
+    padding:14px 6px;font-size:13px;
   }
-  #panelToggle .arrow{writing-mode:horizontal-tb;}
 }
 
 /* ===== RIGHT PANEL SLIDE ===== */
@@ -365,10 +372,17 @@ canvas{display:block;}
 /* detect mobile: show controls */
 @media (max-width: 900px) {
   #panelToggle{padding:14px 7px;font-size:13px;}
-  #rightPanel{width:100% !important;min-width:0 !important;position:fixed;top:auto;bottom:0;left:0;right:0;height:50dvh;z-index:20;border-top:2px solid var(--green);border-left:none;}
-  #rightPanel.collapsed{height:0 !important;top:auto !important;width:100% !important;min-width:100% !important;overflow:hidden;border:none;}
+  /* 오른쪽에서 슬라이드되는 패널 (닫힘/절반/전체 3단계) */
+  #rightPanel{
+    width:50% !important;min-width:0 !important;
+    position:fixed;top:var(--topbarH);bottom:0;left:auto;right:0;height:auto;
+    z-index:20;border-top:none;border-left:2px solid var(--green);
+  }
+  #rightPanel.collapsed{width:0 !important;min-width:0 !important;overflow:hidden;border:none;}
+  #rightPanel.half{width:50% !important;}
+  #rightPanel.full{width:100% !important;}
   #rightPanel.collapsed::after{display:none;}
-  #layout{flex-direction:column;}
+  #layout{flex-direction:row;}
   #gamePanel{
     height:calc(100dvh - var(--topbarH));
     min-height:0;
@@ -380,215 +394,9 @@ canvas{display:block;}
 /* 가로 모드 (landscape) 별도 처리 */
 @media (max-height: 500px) and (orientation: landscape) {
   :root{--mobBarH:44px;}
-  #rightPanel.collapsed{height:0 !important;}
+  #rightPanel.collapsed{width:0 !important;}
   #gamePanel{height:calc(100dvh - var(--topbarH));}
 }
-
-/* ═══ HD어드민 패널 ═══ */
-#pane-hdadmin {
-  display: none;
-  flex-direction: column;
-  position: fixed;
-  top: 38px;
-  right: 0;
-  width: 50%;
-  bottom: 0;
-  z-index: 50;
-  background: var(--panel);
-  border-left: 1px solid var(--gdim);
-}
-#pane-hdadmin.active { display: flex; }
-
-#hd-scroll {
-  flex: 1;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  -webkit-overflow-scrolling: touch;
-  min-height: 0;
-}
-
-#hd-log {
-  height: 90px;
-  flex-shrink: 0;
-  border-top: 1px solid var(--gdim);
-  background: #030a03;
-  overflow-y: auto;
-  padding: 6px 10px;
-  font-size: 11px;
-  line-height: 1.8;
-}
-.hd-ok  { color: var(--green); }
-.hd-err { color: var(--red); }
-.hd-inf { color: var(--gdim); }
-
-/* 섹션 카드 */
-.hd-card {
-  border: 1px solid var(--gdim);
-  border-radius: 5px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.hd-card-title {
-  padding: 8px 12px;
-  background: #001500;
-  border-bottom: 1px solid var(--gdim);
-  font-size: 11px;
-  font-weight: bold;
-  color: var(--green);
-  letter-spacing: 1px;
-}
-.hd-card-body {
-  padding: 10px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* 행 */
-.hd-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.hd-lbl {
-  font-size: 10px;
-  color: var(--gdim);
-  min-width: 48px;
-  flex-shrink: 0;
-}
-
-/* ON/OFF 토글 */
-.hd-pair {
-  display: flex;
-  border-radius: 3px;
-  overflow: hidden;
-  border: 1px solid var(--gdim);
-}
-.hd-on, .hd-off {
-  padding: 7px 16px;
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  font-weight: bold;
-  border: none;
-  cursor: pointer;
-  transition: all .12s;
-}
-.hd-on  { background: #001800; color: #335533; }
-.hd-off { background: #001800; color: #335533; border-left: 1px solid var(--gdim); }
-.hd-on.active  { background: #003300; color: var(--green); box-shadow: inset 0 0 8px #00ff4122; }
-.hd-off.active { background: #1a0000; color: var(--red);   box-shadow: inset 0 0 8px #ff330022; }
-
-/* 슬라이더 */
-.hd-sl-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-.hd-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: #002200;
-  outline: none;
-  cursor: pointer;
-}
-.hd-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  background: var(--green);
-  cursor: pointer;
-  box-shadow: 0 0 6px #00ff4177;
-}
-.hd-slider::-moz-range-thumb {
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  border: none;
-  background: var(--green);
-  cursor: pointer;
-}
-.hd-sl-val {
-  min-width: 38px;
-  text-align: right;
-  font-size: 13px;
-  font-weight: bold;
-  color: var(--green);
-  font-family: 'Courier New', monospace;
-}
-.hd-apply {
-  padding: 7px 13px;
-  background: #001800;
-  border: 1px solid var(--gdim);
-  color: var(--gmid);
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 3px;
-  flex-shrink: 0;
-  transition: all .12s;
-}
-.hd-apply:hover { border-color: var(--green); color: var(--green); background: #002800; }
-.hd-apply:active { background: #003800; }
-
-/* 숫자/텍스트 입력 */
-.hd-num {
-  width: 64px;
-  background: #020f02;
-  border: 1px solid var(--gdim);
-  color: var(--green);
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  padding: 5px 7px;
-  border-radius: 3px;
-  outline: none;
-  text-align: center;
-}
-.hd-txt {
-  flex: 1;
-  background: #020f02;
-  border: 1px solid var(--gdim);
-  color: var(--green);
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  padding: 5px 7px;
-  border-radius: 3px;
-  outline: none;
-}
-.hd-num:focus, .hd-txt:focus { border-color: var(--green); }
-
-/* 색상 피커 */
-.hd-color {
-  width: 38px; height: 32px;
-  border: 1px solid var(--gdim);
-  border-radius: 3px;
-  background: none;
-  cursor: pointer;
-  padding: 2px;
-}
-
-/* 단독 버튼 */
-.hd-btn {
-  padding: 8px 14px;
-  background: #001800;
-  border: 1px solid var(--gdim);
-  color: var(--gmid);
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 3px;
-  transition: all .12s;
-}
-.hd-btn:hover { border-color: var(--green); color: var(--green); background: #002800; }
-.hd-btn.red { border-color: #440000; color: #884444; }
-.hd-btn.red:hover { border-color: var(--red); color: var(--red); background: #1a0000; }
 </style>
 </head>
 <body>
@@ -628,7 +436,7 @@ canvas{display:block;}
   <button class="tab-btn"        id="t-block"     onclick="sw('block')">블록 코딩</button>
   <button class="tab-btn"        id="t-ai"        onclick="sw('ai')">AI 질문</button>
   <button class="tab-btn"        id="t-inspector" onclick="sw('inspector')">명령어</button>
-  <button class="tab-btn"        id="t-hdadmin"   onclick="sw('hdadmin')">HD어드민</button>
+  <button class="tab-btn" id="musicToggle" onclick="toggleMusic()" title="배경음 ON/OFF">🔈 음악</button>
   <div class="spacer"></div>
   <div class="topnote">WASD / 화살표 이동  |  스페이스 점프  |  R 리셋</div>
 </div>
@@ -665,6 +473,7 @@ canvas{display:block;}
         <textarea id="codeArea" spellcheck="false"
           placeholder="# Python 코드를 입력하고 실행을 누르세요&#10;print('Hello, Matrix!')&#10;&#10;# 명령어 직접 실행 예시:&#10;# fly(True)   ← 날기&#10;# speed(10)   ← 빠르게&#10;# dance(True) ← 춤추기&#10;# say('안녕!') ← 말풍선"></textarea>
       </div>
+      <div id="acBar"></div>
       <div id="outputArea"><div class="o-sys"># 실행 결과. print() → 캐릭터 말풍선 | fly(True) / speed(10) / dance(True) 등 명령어도 직접 실행 가능!</div></div>
     </div>
 
@@ -733,309 +542,12 @@ canvas{display:block;}
     <div class="pane" id="pane-inspector">
       <div class="ptbar">
         <span class="label">명령어 레퍼런스</span>
-        <button class="btn run" onclick="showAllCmds()">전체 보기</button>
+        <button class="btn run" id="cmdExpandAllBtn" onclick="toggleAllCmds()">모두 펼치기</button>
       </div>
-      <div id="inspContent"></div>
+      <div id="inspContent">
+        <!-- JS로 채워짐 -->
+      </div>
     </div>
-
-    <!-- 5. HD어드민 ══════════════════════ -->
-    <div class="pane" id="pane-hdadmin">
-      <div class="ptbar">
-        <span class="label">HD어드민</span>
-        <button class="btn danger" onclick="document.getElementById('hd-log').innerHTML=''">로그 지우기</button>
-      </div>
-
-      <div id="hd-scroll">
-
-        <!-- 🎮 이동/물리 -->
-        <div class="hd-card">
-          <div class="hd-card-title">🎮 이동 / 물리</div>
-          <div class="hd-card-body">
-
-            <div class="hd-row">
-              <span class="hd-lbl">비행</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-fly"   onclick="hdTog('fly','t-fly','t-unfly')">ON</button>
-                <button class="hd-off" id="t-unfly" onclick="hdTog('unfly','t-fly','t-unfly')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">속도</span>
-              <div class="hd-sl-row">
-                <input class="hd-slider" id="sl-speed" type="range" min="1" max="40" value="4"
-                  oninput="document.getElementById('vl-speed').textContent=this.value">
-                <span class="hd-sl-val" id="vl-speed">4</span>
-              </div>
-              <button class="hd-apply" onclick="runHDCommand('speed '+document.getElementById('sl-speed').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">점프력</span>
-              <div class="hd-sl-row">
-                <input class="hd-slider" id="sl-jump" type="range" min="1" max="40" value="10"
-                  oninput="document.getElementById('vl-jump').textContent=this.value">
-                <span class="hd-sl-val" id="vl-jump">10</span>
-              </div>
-              <button class="hd-apply" onclick="runHDCommand('jumppower '+document.getElementById('sl-jump').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <button class="hd-btn" onclick="runHDCommand('resetspeed');hdSlReset('sl-speed','vl-speed',4);runHDCommand('resetjump');hdSlReset('sl-jump','vl-jump',10)">↺ 속도·점프 초기화</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">무적</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-god"   onclick="hdTog('god','t-god','t-ungod')">ON</button>
-                <button class="hd-off" id="t-ungod" onclick="hdTog('ungod','t-god','t-ungod')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">동결</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-freeze"   onclick="hdTog('freeze','t-freeze','t-unfreeze')">ON</button>
-                <button class="hd-off" id="t-unfreeze" onclick="hdTog('unfreeze','t-freeze','t-unfreeze')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">흔적</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-trail"   onclick="hdTog('trail','t-trail','t-untrail')">ON</button>
-                <button class="hd-off" id="t-untrail" onclick="hdTog('untrail','t-trail','t-untrail')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">좌표이동</span>
-              X<input class="hd-num" id="hd-gx" type="number" value="300">
-              Y<input class="hd-num" id="hd-gy" type="number" value="200">
-              <button class="hd-apply" onclick="runHDCommand('goto '+document.getElementById('hd-gx').value+' '+document.getElementById('hd-gy').value)">이동</button>
-            </div>
-
-            <div class="hd-row">
-              <button class="hd-btn" onclick="runHDCommand('respawn')">↺ 리스폰</button>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- 🎨 외형 -->
-        <div class="hd-card">
-          <div class="hd-card-title">🎨 캐릭터 외형</div>
-          <div class="hd-card-body">
-
-            <div class="hd-row">
-              <span class="hd-lbl">이름</span>
-              <input class="hd-txt" id="hd-cname" type="text" value="Player">
-              <button class="hd-apply" onclick="runHDCommand('char '+document.getElementById('hd-cname').value)">변경</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">크기</span>
-              <div class="hd-sl-row">
-                <input class="hd-slider" id="sl-size" type="range" min="0.3" max="4" step="0.1" value="1"
-                  oninput="document.getElementById('vl-size').textContent=parseFloat(this.value).toFixed(1)">
-                <span class="hd-sl-val" id="vl-size">1.0</span>
-              </div>
-              <button class="hd-apply" onclick="runHDCommand('size '+document.getElementById('sl-size').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <button class="hd-btn" onclick="runHDCommand('resetsize');hdSlReset('sl-size','vl-size',1,'1.0')">↺ 크기 초기화</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">몸 색상</span>
-              <input class="hd-color" id="hd-bc" type="color" value="#00aaff">
-              <button class="hd-apply" onclick="runHDCommand('bodycolor '+document.getElementById('hd-bc').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">머리 색상</span>
-              <input class="hd-color" id="hd-hc" type="color" value="#ffcc88">
-              <button class="hd-apply" onclick="runHDCommand('headcolor '+document.getElementById('hd-hc').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">투명도</span>
-              <div class="hd-sl-row">
-                <input class="hd-slider" id="sl-alpha" type="range" min="0" max="1" step="0.05" value="1"
-                  oninput="document.getElementById('vl-alpha').textContent=parseFloat(this.value).toFixed(2)">
-                <span class="hd-sl-val" id="vl-alpha">1.00</span>
-              </div>
-              <button class="hd-apply" onclick="runHDCommand('alpha '+document.getElementById('sl-alpha').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">표시</span>
-              <div class="hd-pair">
-                <button class="hd-on active" id="t-visible"   onclick="hdTog('visible','t-visible','t-invis')">보이기</button>
-                <button class="hd-off"       id="t-invis"     onclick="hdTog('invisible','t-visible','t-invis')">숨기기</button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- 💬 말/알림 -->
-        <div class="hd-card">
-          <div class="hd-card-title">💬 말 / 알림</div>
-          <div class="hd-card-body">
-
-            <div class="hd-row">
-              <span class="hd-lbl">말풍선</span>
-              <input class="hd-txt" id="hd-say" type="text" value="안녕하세요!">
-              <button class="hd-apply" onclick="runHDCommand('say '+document.getElementById('hd-say').value)">말하기</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">배너</span>
-              <input class="hd-txt" id="hd-ann" type="text" value="아이템 획득!">
-              <button class="hd-apply" onclick="runHDCommand('announce '+document.getElementById('hd-ann').value)">알림</button>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- ✨ 포즈/이펙트 -->
-        <div class="hd-card">
-          <div class="hd-card-title">✨ 포즈 / 이펙트</div>
-          <div class="hd-card-body">
-
-            <div class="hd-row">
-              <span class="hd-lbl">춤</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-dance"   onclick="hdTog('dance','t-dance','t-undance')">ON</button>
-                <button class="hd-off" id="t-undance" onclick="hdTog('undance','t-dance','t-undance')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">앉기</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-sit"   onclick="hdTog('sit','t-sit','t-unsit')">ON</button>
-                <button class="hd-off" id="t-unsit" onclick="hdTog('unsit','t-sit','t-unsit')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">보호막</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-ff"   onclick="hdTog('ff','t-ff','t-unff')">ON</button>
-                <button class="hd-off" id="t-unff" onclick="hdTog('unff','t-ff','t-unff')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">화염</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-fire"   onclick="hdTog('fire','t-fire','t-nofire')">ON</button>
-                <button class="hd-off" id="t-nofire" onclick="hdTog('nofire','t-fire','t-nofire')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">연기</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-smoke"   onclick="hdTog('smoke','t-smoke','t-nosmoke')">ON</button>
-                <button class="hd-off" id="t-nosmoke" onclick="hdTog('nosmoke','t-smoke','t-nosmoke')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">반짝임</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-sparkles"   onclick="hdTog('sparkles','t-sparkles','t-nosparkles')">ON</button>
-                <button class="hd-off" id="t-nosparkles" onclick="hdTog('nosparkles','t-sparkles','t-nosparkles')">OFF</button>
-              </div>
-            </div>
-
-            <div class="hd-row">
-              <button class="hd-btn red" onclick="runHDCommand('explode')">💥 폭발</button>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- 🌍 환경 -->
-        <div class="hd-card">
-          <div class="hd-card-title">🌍 환경 효과</div>
-          <div class="hd-card-body">
-
-            <div class="hd-row">
-              <span class="hd-lbl">낮/밤</span>
-              <div class="hd-sl-row">
-                <span style="font-size:10px;color:var(--gdim)">🌙</span>
-                <input class="hd-slider" id="sl-time" type="range" min="0" max="1" step="0.05" value="1"
-                  oninput="document.getElementById('vl-time').textContent=parseFloat(this.value).toFixed(2)">
-                <span style="font-size:10px;color:var(--gdim)">☀️</span>
-                <span class="hd-sl-val" id="vl-time">1.00</span>
-              </div>
-              <button class="hd-apply" onclick="runHDCommand('time '+document.getElementById('sl-time').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">주변광</span>
-              <div class="hd-sl-row">
-                <input class="hd-slider" id="sl-amb" type="range" min="0" max="1" step="0.05" value="1"
-                  oninput="document.getElementById('vl-amb').textContent=parseFloat(this.value).toFixed(2)">
-                <span class="hd-sl-val" id="vl-amb">1.00</span>
-              </div>
-              <button class="hd-apply" onclick="runHDCommand('ambient '+document.getElementById('sl-amb').value)">적용</button>
-            </div>
-
-            <div class="hd-row">
-              <span class="hd-lbl">안개</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-fog"   onclick="hdTog('fog','t-fog','t-unfog')">ON</button>
-                <button class="hd-off" id="t-unfog" onclick="hdTog('unfog','t-fog','t-unfog')">OFF</button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- 👥 멀티/더미 -->
-        <div class="hd-card">
-          <div class="hd-card-title">👥 멀티 / 더미</div>
-          <div class="hd-card-body">
-
-            <div class="hd-row">
-              <span class="hd-lbl">2인 모드</span>
-              <div class="hd-pair">
-                <button class="hd-on"  id="t-2play"   onclick="hdTog('2play','t-2play','t-un2play')">ON</button>
-                <button class="hd-off" id="t-un2play" onclick="hdTog('un2play','t-2play','t-un2play')">OFF</button>
-              </div>
-              <span style="font-size:10px;color:var(--gdim)">IJKL+U</span>
-            </div>
-
-            <div class="hd-row">
-              <button class="hd-btn red" onclick="runHDCommand('kill dummy1')">💀 kill dummy1</button>
-              <button class="hd-btn red" onclick="runHDCommand('kill bummy2')">💀 kill bummy2</button>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- 🐍 Python 즉시실행 -->
-        <div class="hd-card">
-          <div class="hd-card-title">🐍 Python 즉시 실행</div>
-          <div class="hd-card-body">
-            <div class="hd-row">
-              <input class="hd-txt" id="hd-pyrun" type="text" value="print('Hello!')" placeholder="파이썬 코드">
-              <button class="hd-apply" style="border-color:var(--green);color:var(--green);"
-                onclick="runHDCommand('run '+document.getElementById('hd-pyrun').value)">▶ 실행</button>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /hd-scroll -->
-
-      <div id="hd-log"><span class="hd-inf">> HD어드민 준비됨</span></div>
-    </div><!-- /pane-hdadmin -->
 
   </div>
 </div>
@@ -1237,10 +749,9 @@ let cmdConsoleOpen=false;
 let player2=null; // /2play
 function toggleCmdConsole(){ /* HD 어드민 창 제거됨 — 에디터에서 직접 명령어 실행 가능 */ }
 function cmdLog(text,cls){
+  // 출력창에 표시
   const o=document.getElementById('outputArea');
   if(o){const d=document.createElement('div');d.className='o-sys';d.textContent=text;o.appendChild(d);o.scrollTop=o.scrollHeight;}
-  const hl=document.getElementById('hd-log');
-  if(hl){const d=document.createElement('div');d.className=cls==='cl-err'?'hd-err':cls==='cl-ok'?'hd-ok':'hd-inf';d.textContent='> '+text;hl.appendChild(d);hl.scrollTop=hl.scrollHeight;}
 }
 document.addEventListener('DOMContentLoaded',()=>{});
 function bindCmdEnter(){
@@ -1590,27 +1101,13 @@ function gameLoop(){updateP();updateP2();updateDM();checkDummyRespawns();updateC
 // ═══════════════════════════════════════════
 //  TAB SWITCHING
 // ═══════════════════════════════════════════
-const TABS=['editor','block','ai','inspector','hdadmin'];
+const TABS=['editor','block','ai','inspector'];
 function sw(tab){
   TABS.forEach(t=>{
     document.getElementById('t-'+t).classList.toggle('active',t===tab);
     document.getElementById('pane-'+t).classList.toggle('active',t===tab);
   });
   if(tab==='inspector')showAllCmds();
-}
-
-// HD어드민 헬퍼
-function hdTog(cmd,onId,offId){
-  runHDCommand(cmd);
-  const isOn=(cmd!=='ungod'&&cmd!=='unfly'&&cmd!=='unfreeze'&&cmd!=='untrail'&&cmd!=='undance'&&cmd!=='unsit'&&cmd!=='unff'&&cmd!=='nofire'&&cmd!=='nosmoke'&&cmd!=='nosparkles'&&cmd!=='unfog'&&cmd!=='un2play'&&cmd!=='invisible');
-  const onEl=document.getElementById(onId),offEl=document.getElementById(offId);
-  if(onEl)onEl.classList.toggle('active',isOn);
-  if(offEl)offEl.classList.toggle('active',!isOn);
-}
-function hdSlReset(slId,valId,num,display){
-  const sl=document.getElementById(slId),vl=document.getElementById(valId);
-  if(sl)sl.value=num;
-  if(vl)vl.textContent=display||String(num);
 }
 
 // ═══════════════════════════════════════════
@@ -1628,6 +1125,109 @@ codeArea.addEventListener('scroll',()=>{lineNums.scrollTop=codeArea.scrollTop;})
 codeArea.addEventListener('keydown',e=>{
   if(e.key==='Tab'){e.preventDefault();const s=codeArea.selectionStart,end=codeArea.selectionEnd;codeArea.value=codeArea.value.substring(0,s)+'    '+codeArea.value.substring(end);codeArea.selectionStart=codeArea.selectionEnd=s+4;updateLineNums();}
 });
+
+// ═══════════════════════════════════════════
+//  자동완성 (입력 중 추천 명령어 바)
+// ═══════════════════════════════════════════
+const AC_COMMANDS=[
+  // 파이썬 기본 문법
+  {name:'print',  insert:"print()",            back:1},
+  {name:'input',  insert:"input()",             back:1},
+  {name:'len',    insert:"len()",                back:1},
+  {name:'range',  insert:"range()",              back:1},
+  {name:'str',    insert:"str()",                back:1},
+  {name:'int',    insert:"int()",                back:1},
+  {name:'float',  insert:"float()",              back:1},
+  {name:'if',     insert:"if :\n    "},
+  {name:'elif',   insert:"elif :\n    "},
+  {name:'else',   insert:"else:\n    "},
+  {name:'for',    insert:"for i in range():\n    "},
+  {name:'while',  insert:"while :\n    "},
+  {name:'def',    insert:"def ():\n    "},
+  {name:'True',   insert:"True"},
+  {name:'False',  insert:"False"},
+  {name:'and',    insert:"and "},
+  {name:'or',     insert:"or "},
+  {name:'not',    insert:"not "},
+  // 캐릭터 이동/물리
+  {name:'fly',        insert:"fly(True)"},
+  {name:'speed',      insert:"speed()",        back:1},
+  {name:'jumppower',  insert:"jumppower()",    back:1},
+  {name:'goto',       insert:"goto(, )",       back:4},
+  {name:'move',       insert:"move()",         back:1},
+  {name:'jump',       insert:"jump()"},
+  {name:'freeze',     insert:"freeze(True)"},
+  {name:'god',        insert:"god(True)"},
+  // 외형
+  {name:'char',       insert:"char('')",       back:2},
+  {name:'color',      insert:"color('#')",     back:2},
+  {name:'headcolor',  insert:"headcolor('#')", back:2},
+  {name:'size',       insert:"size()",         back:1},
+  {name:'alpha',      insert:"alpha()",        back:1},
+  {name:'visible',    insert:"visible(True)"},
+  {name:'trail',      insert:"trail(True)"},
+  // 말/알림
+  {name:'say',        insert:"say('')",        back:2},
+  {name:'announce',   insert:"announce('')",   back:2},
+  // 이펙트/포즈
+  {name:'dance',      insert:"dance(True)"},
+  {name:'sit',        insert:"sit(True)"},
+  {name:'fire',       insert:"fire(True)"},
+  {name:'smoke',      insert:"smoke(True)"},
+  {name:'sparkles',   insert:"sparkles(True)"},
+  {name:'explode',    insert:"explode()"},
+  {name:'ff',         insert:"ff(True)"},
+  // 환경
+  {name:'time',       insert:"time()",         back:1},
+  {name:'ambient',    insert:"ambient()",      back:1},
+  {name:'fog',        insert:"fog(True)"},
+];
+const acBar=document.getElementById('acBar');
+
+function getCurrentWordRange(){
+  const pos=codeArea.selectionStart;
+  const text=codeArea.value;
+  let start=pos;
+  while(start>0 && /[A-Za-z0-9_]/.test(text[start-1])) start--;
+  return {start, end:pos, word:text.slice(start,pos)};
+}
+
+function updateAutocomplete(){
+  const {start,end,word}=getCurrentWordRange();
+  if(!word){ hideAutocomplete(); return; }
+  const w=word.toLowerCase();
+  const matches=AC_COMMANDS.filter(c=>c.name.toLowerCase().startsWith(w) && c.name.toLowerCase()!==w);
+  if(matches.length===0){ hideAutocomplete(); return; }
+  acBar.innerHTML='';
+  matches.slice(0,14).forEach(m=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='ac-item';
+    b.textContent=m.name;
+    b.onmousedown=(e)=>{ e.preventDefault(); applyAutocomplete(m,start,end); };
+    acBar.appendChild(b);
+  });
+  acBar.style.display='flex';
+}
+function hideAutocomplete(){ acBar.style.display='none'; acBar.innerHTML=''; }
+
+function applyAutocomplete(m,start,end){
+  const text=codeArea.value;
+  codeArea.value = text.slice(0,start) + m.insert + text.slice(end);
+  let newPos = start + m.insert.length - (m.back||0);
+  codeArea.focus();
+  codeArea.selectionStart = codeArea.selectionEnd = newPos;
+  updateLineNums();
+  hideAutocomplete();
+}
+
+codeArea.addEventListener('input', updateAutocomplete);
+codeArea.addEventListener('click', updateAutocomplete);
+codeArea.addEventListener('keyup', e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key)) updateAutocomplete();
+  if(e.key==='Escape') hideAutocomplete();
+});
+codeArea.addEventListener('blur', ()=>{ setTimeout(hideAutocomplete, 150); });
 
 // ═══════════════════════════════════════════
 //  PYTHON INTERPRETER
@@ -2158,27 +1758,58 @@ const CMD_GROUPS=[
 function showAllCmds(){
   const ic=document.getElementById('inspContent');
   ic.innerHTML='';
-  CMD_GROUPS.forEach(g=>{
+  const expandBtn=document.getElementById('cmdExpandAllBtn');
+  if(expandBtn) expandBtn.textContent='모두 펼치기';
+  CMD_GROUPS.forEach((g,gi)=>{
     const sec=document.createElement('div');
-    sec.style.cssText='border:1px solid #003b00;border-radius:4px;overflow:hidden;margin-bottom:4px;';
-    const hd=document.createElement('div');
-    hd.style.cssText=`background:#001500;padding:7px 10px;font-size:11px;font-weight:bold;color:${g.color};cursor:pointer;display:flex;justify-content:space-between;`;
-    hd.innerHTML=`${g.title} <span style="color:var(--gdim)">[${g.cmds.length}개] ▼</span>`;
+    sec.className='cmd-sec';
+    sec.style.cssText='border:1px solid #003b00;border-radius:6px;overflow:hidden;margin-bottom:8px;flex-shrink:0;';
+
+    const hd=document.createElement('button');
+    hd.type='button';
+    hd.className='cmd-hd';
+    hd.style.cssText=`width:100%;text-align:left;background:#001a00;padding:14px 16px;font-size:15px;font-weight:bold;color:${g.color};cursor:pointer;display:flex;justify-content:space-between;align-items:center;border:none;`;
+    hd.innerHTML=`<span>${esc(g.title)}</span><span class="cmd-hd-meta" style="color:var(--gdim);font-size:12px;">${g.cmds.length}개  ▶</span>`;
+
     const body=document.createElement('div');
-    body.style.cssText='padding:4px 6px;display:flex;flex-direction:column;gap:3px;';
-    g.cmds.forEach(c=>{
+    body.className='cmd-body';
+    body.style.cssText='display:none;flex-direction:column;gap:6px;padding:8px;background:#020802;';
+
+    g.cmds.forEach((c,ci)=>{
       const row=document.createElement('div');
-      row.style.cssText='padding:5px 8px;background:#030f03;border-radius:3px;border:1px solid #001800;cursor:pointer;';
-      row.innerHTML=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><code style="color:${g.color};font-size:11px;font-family:'Courier New',monospace;background:#001200;padding:1px 6px;border-radius:2px;">${esc(c.name)}</code><span style="color:var(--gdim);font-size:10px;">${c.desc}</span><button onclick="insertCmd(${JSON.stringify(c.ex)})" style="margin-left:auto;background:#003000;border:1px solid var(--gdim);color:var(--gmid);font-size:9px;padding:1px 5px;cursor:pointer;border-radius:2px;">에디터에 삽입</button></div>`;
+      row.style.cssText='padding:10px 12px;background:#041204;border-radius:5px;border:1px solid #002400;display:flex;flex-direction:column;gap:6px;';
+      row.innerHTML=`
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <code style="color:${g.color};font-size:13px;font-weight:bold;font-family:'Courier New',monospace;background:#001a00;padding:3px 8px;border-radius:3px;">${esc(c.name)}</code>
+        </div>
+        <div style="color:var(--gmid);font-size:12px;line-height:1.5;">${esc(c.desc)}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <code style="color:var(--gdim);font-size:11px;white-space:pre-wrap;flex:1;">${esc(c.ex)}</code>
+          <button type="button" class="cmd-insert-btn" data-gi="${gi}" data-ci="${ci}" style="background:#004400;border:1px solid var(--green);color:var(--green);font-size:12px;font-weight:bold;padding:8px 14px;cursor:pointer;border-radius:4px;flex-shrink:0;white-space:nowrap;">➜ 에디터에 삽입</button>
+        </div>`;
       body.appendChild(row);
     });
-    hd.onclick=()=>{
-      const hidden=body.style.display==='none';
-      body.style.display=hidden?'flex':'none';
-      hd.querySelector('span').textContent=`[${g.cmds.length}개] ${hidden?'▼':'▶'}`;
-    };
+
+    hd.addEventListener('click', ()=>{
+      const opening = body.style.display==='none';
+      body.style.display = opening ? 'flex' : 'none';
+      hd.querySelector('.cmd-hd-meta').textContent = `${g.cmds.length}개  ${opening?'▼':'▶'}`;
+    });
+
     sec.appendChild(hd);sec.appendChild(body);ic.appendChild(sec);
   });
+
+  // 삽입 버튼은 이벤트 위임으로 한 번만 연결 (중복 바인딩 방지)
+  if(!ic.dataset.boundInsert){
+    ic.addEventListener('click', e=>{
+      const btn = e.target.closest('.cmd-insert-btn');
+      if(!btn) return;
+      const gi = +btn.dataset.gi, ci = +btn.dataset.ci;
+      const cmd = CMD_GROUPS[gi] && CMD_GROUPS[gi].cmds[ci];
+      if(cmd) insertCmd(cmd.ex);
+    });
+    ic.dataset.boundInsert='1';
+  }
 }
 function insertCmd(ex){
   sw('editor');
@@ -2188,24 +1819,151 @@ function insertCmd(ex){
 }
 function inspect(){showAllCmds();}
 function aiInspect(){showAllCmds();}
+function toggleAllCmds(){
+  const ic=document.getElementById('inspContent');
+  const btn=document.getElementById('cmdExpandAllBtn');
+  const bodies=ic.querySelectorAll('.cmd-body');
+  const opening = btn.textContent.trim()==='모두 펼치기';
+  bodies.forEach(body=>{
+    body.style.display = opening ? 'flex' : 'none';
+    const meta = body.previousElementSibling.querySelector('.cmd-hd-meta');
+    const n = meta.textContent.match(/\d+/)[0];
+    meta.textContent = `${n}개  ${opening?'▼':'▶'}`;
+  });
+  btn.textContent = opening ? '모두 접기' : '모두 펼치기';
+}
 
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
 // ═══════════════════════════════════════════
-//  PANEL TOGGLE
+//  BACKGROUND MUSIC (Matrix-style ambient, Web Audio 합성)
 // ═══════════════════════════════════════════
+let audioCtx=null, masterGain=null, delayNode=null, feedbackNode=null;
+let droneOscs=[], musicOn=false, blipTimer=null;
+// A 단조 펜타토닉 (A-C-D-E-G) — 드론의 루트(A)와 잘 어울리는 깨끗한 스케일
+const MATRIX_SCALE=[220.00,261.63,293.66,329.63,392.00,440.00,523.25,587.33];
+
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+  // 전체 출력 다듬기 (찌그러짐/너무 큰 소리 방지)
+  const compressor = audioCtx.createDynamicsCompressor();
+  compressor.threshold.value = -24;
+  compressor.ratio.value = 6;
+  compressor.connect(audioCtx.destination);
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.0001;
+  masterGain.connect(compressor);
+
+  // 디지털 에코 (딜레이 + 피드백, 고음을 살짝 죽여서 메아리가 탁해지지 않게)
+  delayNode = audioCtx.createDelay(1.0);
+  delayNode.delayTime.value = 0.36;
+  const echoFilter = audioCtx.createBiquadFilter();
+  echoFilter.type = 'lowpass';
+  echoFilter.frequency.value = 1800;
+  feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = 0.24;
+  delayNode.connect(echoFilter);
+  echoFilter.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(masterGain);
+
+  // 저음 드론 패드 (살짝 디튠된 사인파 3개, A 루트) — 매트릭스 특유의 묵직한 배경
+  const droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0.14;
+  droneGain.connect(masterGain);
+  [55, 55.4, 110].forEach(freq=>{
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    o.connect(droneGain);
+    o.start();
+    droneOscs.push(o);
+  });
+
+  // 아주 느린 볼륨 스웰로 드론에 숨쉬는 듯한 움직임 부여
+  const lfo = audioCtx.createOscillator();
+  lfo.type='sine'; lfo.frequency.value=0.06;
+  const lfoGain = audioCtx.createGain(); lfoGain.gain.value=0.04;
+  lfo.connect(lfoGain); lfoGain.connect(droneGain.gain);
+  lfo.start();
+}
+
+function playDigitalBlip(){
+  if(!audioCtx || !musicOn) return;
+  const freq = MATRIX_SCALE[Math.floor(Math.random()*MATRIX_SCALE.length)];
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  const f = audioCtx.createBiquadFilter();
+  o.type = 'sine';
+  o.frequency.value = freq;
+  f.type = 'lowpass';
+  f.frequency.value = 2200; // 너무 쨍한 배음을 죽여서 부드러운 디지털 톤으로
+  g.gain.value = 0.0001;
+  o.connect(f);
+  f.connect(g);
+  g.connect(delayNode);
+  g.connect(masterGain);
+  const t = audioCtx.currentTime;
+  g.gain.linearRampToValueAtTime(0.09, t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+0.7);
+  o.start(t);
+  o.stop(t+0.75);
+}
+
+function scheduleBlips(){
+  if(!musicOn) return;
+  // 매번 울리지 않고 가끔 쉬어줘서 기계적으로 단조롭지 않게
+  if(Math.random() < 0.78) playDigitalBlip();
+  blipTimer = setTimeout(scheduleBlips, 360 + Math.random()*160);
+}
+
+function toggleMusic(){
+  initAudio();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  musicOn = !musicOn;
+  const btn = document.getElementById('musicToggle');
+  if(musicOn){
+    masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.38, audioCtx.currentTime+1.4);
+    btn.textContent = '🔊 음악';
+    btn.classList.add('active');
+    scheduleBlips();
+  } else {
+    masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime+0.6);
+    btn.textContent = '🔈 음악';
+    btn.classList.remove('active');
+    clearTimeout(blipTimer);
+  }
+}
+
+
 // 모바일에서는 처음에 코딩창 닫혀있음 (게임 먼저 보이게)
-let panelOpen = window.innerWidth > 900;
+// panelLevel: 0=닫힘, 1=절반(모바일 전용), 2=전체 열림
+let panelLevel = window.innerWidth > 900 ? 2 : 0;
 function applyPanelState(){
   const rp = document.getElementById('rightPanel');
   const arrow = document.getElementById('panelArrow');
   const isMobile = window.innerWidth <= 900;
-  rp.classList.toggle('collapsed', !panelOpen);
+  rp.classList.remove('collapsed','half','full');
   if(isMobile){
-    arrow.textContent = panelOpen ? '▼ 코딩창 닫기' : '▲ 코딩창 열기';
+    if(panelLevel===0) rp.classList.add('collapsed');
+    else if(panelLevel===1) rp.classList.add('half');
+    else rp.classList.add('full');
+    arrow.textContent = panelLevel===0 ? '[<' : (panelLevel===1 ? '◀▶' : '>]');
+    // 전체화면으로 코딩창이 열리면 실행/플라이 버튼은 가려줌 (게임 화면이 안 보이므로)
+    const mtl = document.getElementById('mobileTopLeft');
+    if(mtl){
+      if(panelLevel===2) mtl.classList.remove('show');
+      else if(window.isTouchDevice) mtl.classList.add('show');
+    }
   } else {
-    arrow.textContent = panelOpen ? '>]' : '[<';
+    rp.classList.toggle('collapsed', panelLevel===0);
+    arrow.textContent = panelLevel>0 ? '>]' : '[<';
   }
   resizeGame();
   requestAnimationFrame(resizeGame);
@@ -2214,7 +1972,12 @@ function applyPanelState(){
   setTimeout(resizeGame,400);
 }
 function togglePanel(){
-  panelOpen = !panelOpen;
+  const isMobile = window.innerWidth <= 900;
+  if(isMobile){
+    panelLevel = (panelLevel+1)%3; // 닫힘 → 절반 → 전체 → 닫힘
+  } else {
+    panelLevel = panelLevel>0 ? 0 : 2; // 데스크탑은 닫힘/열림만
+  }
   applyPanelState();
 }
 
@@ -2272,7 +2035,8 @@ let crouching = false;
 })();
 
 // Detect touch device and show controls
-if('ontouchstart' in window || navigator.maxTouchPoints > 0){
+window.isTouchDevice = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+if(window.isTouchDevice){
   document.getElementById('mobileTopLeft').classList.add('show');
   document.getElementById('mobileBottomLeft').classList.add('show');
   document.getElementById('mobileRight').classList.add('show');
