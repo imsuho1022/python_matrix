@@ -111,8 +111,8 @@ canvas{display:block;}
 }
 .ac-item{
   background:#002a00;border:1px solid var(--green);color:var(--green);
-  font-family:'Courier New',monospace;font-size:13px;font-weight:bold;
-  padding:7px 14px;border-radius:5px;cursor:pointer;white-space:nowrap;
+  font-family:'Courier New',monospace;font-size:10px;font-weight:bold;
+  padding:4px 8px;border-radius:4px;cursor:pointer;white-space:nowrap;
   flex-shrink:0;transition:background .12s;
 }
 .ac-item:hover, .ac-item:active{background:#004d00;}
@@ -120,7 +120,25 @@ canvas{display:block;}
 #outputArea{
   height:160px;flex-shrink:0;border-top:1px solid var(--gdim);
   background:#030a03;overflow-y:auto;padding:8px 10px;font-size:11px;line-height:1.7;
+  position:relative;
 }
+#outputClose{
+  position:sticky;top:0;float:right;
+  background:#001a00;border:1px solid var(--red);color:var(--red);
+  font-size:10px;padding:2px 7px;cursor:pointer;border-radius:2px;
+  font-family:'Courier New',monospace;z-index:2;
+  transition:background .1s;
+}
+#outputClose:hover{background:#330000;}
+#outputArea.hidden-out{height:0;min-height:0;padding:0;border:none;overflow:hidden;}
+#outputToggleBtn{
+  background:#001a00;border:1px solid var(--gdim);color:var(--gdim);
+  font-family:'Courier New',monospace;font-size:10px;padding:2px 8px;
+  cursor:pointer;border-radius:2px 2px 0 0;align-self:flex-end;flex-shrink:0;
+  display:none;
+}
+#outputToggleBtn.show{display:block;}
+#outputToggleBtn:hover{color:var(--green);border-color:var(--green);}
 .o-out{color:var(--gmid);}.o-err{color:var(--red);}.o-sys{color:var(--gdim);}
 .o-num{color:var(--blue);}.o-str{color:var(--yellow);}.o-ok{color:var(--green);}
 
@@ -247,7 +265,7 @@ canvas{display:block;}
 }
 .qbtn{
   background:#001200;border:1px solid var(--gdim);color:var(--gdim);
-  font-family:'Courier New',monospace;font-size:10px;padding:2px 7px;cursor:pointer;border-radius:2px;
+  font-family:'Courier New',monospace;font-size:9px;padding:1px 5px;cursor:pointer;border-radius:2px;
 }
 .qbtn:hover{border-color:var(--purple);color:var(--purple);}
 #aiLog{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
@@ -436,7 +454,7 @@ canvas{display:block;}
   <button class="tab-btn"        id="t-block"     onclick="sw('block')">블록 코딩</button>
   <button class="tab-btn"        id="t-ai"        onclick="sw('ai')">AI 질문</button>
   <button class="tab-btn"        id="t-inspector" onclick="sw('inspector')">명령어</button>
-  <button class="tab-btn" id="musicToggle" onclick="toggleMusic()" title="배경음 ON/OFF">🔈 음악</button>
+  <button class="tab-btn" id="musicToggle" onclick="toggleMusic()" title="배경음 ON/OFF">음악</button>
   <div class="spacer"></div>
   <div class="topnote">WASD / 화살표 이동  |  스페이스 점프  |  R 리셋</div>
 </div>
@@ -474,7 +492,8 @@ canvas{display:block;}
           placeholder="# Python 코드를 입력하고 실행을 누르세요&#10;print('Hello, Matrix!')&#10;&#10;# 명령어 직접 실행 예시:&#10;# fly(True)   ← 날기&#10;# speed(10)   ← 빠르게&#10;# dance(True) ← 춤추기&#10;# say('안녕!') ← 말풍선"></textarea>
       </div>
       <div id="acBar"></div>
-      <div id="outputArea"><div class="o-sys"># 실행 결과. print() → 캐릭터 말풍선 | fly(True) / speed(10) / dance(True) 등 명령어도 직접 실행 가능!</div></div>
+      <button id="outputToggleBtn" onclick="toggleOutput()">▲ 출력창 열기</button>
+      <div id="outputArea"><button id="outputClose" onclick="hideOutput()" title="출력창 닫기">✕ 닫기</button><div class="o-sys"># 실행 결과. print() → 캐릭터 말풍선 | fly(True) / speed(10) / dance(True) 등 명령어도 직접 실행 가능!</div></div>
     </div>
 
     <!-- 2. BLOCK CODING -->
@@ -619,16 +638,35 @@ const P={x:100,y:300,w:26,h:34,baseW:26,baseH:34,vx:0,vy:0,onGround:false,face:1
   dancing:false,sitting:false,fireOn:false,smokeOn:false,sparkleOn:false,shield:false};
 let PARTICLES=[];let dayNight=1;let ambientLevel=1;let fogOn=false;
 const DUMMIES=[
-  {name:'dummy1',x:640,y:0,w:26,h:34,vx:0,vy:0,onGround:false,knockX:0,dead:false,respawnAt:0,spawnX:640,spawnY:280,bodyColor:'#888',headColor:'#aaa'},
-  {name:'bummy2',x:760,y:0,w:26,h:34,vx:0,vy:0,onGround:false,knockX:0,dead:false,respawnAt:0,spawnX:760,spawnY:280,bodyColor:'#996666',headColor:'#ccaaaa'},
+  {name:'dummy1',x:640,y:0,w:26,h:34,vx:0,vy:0,onGround:false,knockX:0,dead:false,respawnAt:0,spawnX:640,spawnY:280,bodyColor:'#888',headColor:'#aaa',hp:100,maxHp:100,kills:0},
+  {name:'bummy2',x:760,y:0,w:26,h:34,vx:0,vy:0,onGround:false,knockX:0,dead:false,respawnAt:0,spawnX:760,spawnY:280,bodyColor:'#996666',headColor:'#ccaaaa',hp:100,maxHp:100,kills:0},
 ];
 DUMMIES.forEach(d=>{d.y=d.spawnY-d.h;});
+let playerKills=0, playerDeaths=0;
 function killDummy(name){
   if(!name)return false;
   const d=DUMMIES.find(x=>x.name.toLowerCase()===String(name).trim().toLowerCase());
   if(!d)return false;
-  d.dead=true;
-  d.respawnAt=Date.now()+4000; // 4초 후 리스폰 (게임 루프에서 체크)
+  if(d.dead)return false;
+  d.dead=true;d.hp=0;
+  d.respawnAt=Date.now()+4000;
+  playerKills++;
+  explodeAt(d.x+d.w/2,d.y+d.h/2);
+  announce('💀 '+d.name+' 처치! (킬: '+playerKills+')');
+  return true;
+}
+function damageDummy(name,dmg){
+  if(!name)return false;
+  dmg=Number(dmg)||20;
+  const d=DUMMIES.find(x=>x.name.toLowerCase()===String(name).trim().toLowerCase());
+  if(!d||d.dead)return false;
+  d.hp=Math.max(0,d.hp-dmg);
+  d.knockX=(P.face||1)*3;
+  for(let k=0;k<8;k++){
+    const ang=Math.random()*Math.PI*2,sp=1.5+Math.random()*2.5;
+    PARTICLES.push({x:d.x+d.w/2,y:d.y+d.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-0.5,life:22,maxLife:22,color:'#ff3300',size:2+Math.random()*2});
+  }
+  if(d.hp<=0)killDummy(name);
   return true;
 }
 function checkDummyRespawns(){
@@ -637,6 +675,7 @@ function checkDummyRespawns(){
     if(d.dead&&d.respawnAt&&now>=d.respawnAt){
       d.dead=false;d.respawnAt=0;
       d.x=d.spawnX;d.y=d.spawnY-d.h;d.vx=0;d.vy=0;d.knockX=0;
+      d.hp=d.maxHp;
     }
   });
 }
@@ -835,7 +874,14 @@ function pyBridge(name,argv){
     case 'move': P.x+=(argv[0]!=null?Number(argv[0]):0);return 'move';
     case 'jump': if(P.onGround&&!flyMode){P.vy=-P.jump;P.onGround=false;}return 'jump';
     case 'kill': {const t=argv[0]!=null?String(argv[0]):'';return 'kill='+t+' → '+(killDummy(t)?'성공':'대상 없음');}
+    case 'damage': {const t=argv[0]!=null?String(argv[0]):'';const d=argv[1]!=null?Number(argv[1]):20;return 'damage='+t+' -'+d+'HP → '+(damageDummy(t,d)?'성공':'대상 없음');}
     case 'announce': announce(argv[0]!=null?String(argv[0]):'');return 'announce';
+    case 'stats': {
+      const lines=DUMMIES.map(d=>d.name+': HP '+(d.dead?'DEAD':d.hp+'/'+d.maxHp));
+      lines.unshift('킬: '+playerKills+' | 데스: '+playerDeaths);
+      lines.forEach(l=>outLine(l,'o-sys','outputArea'));
+      return 'stats 출력됨';
+    }
     case 'say': showBubble(argv[0]!=null?String(argv[0]):'');return 'say';
     case 'ff': P.shield=b(argv[0]);return 'ff='+P.shield;
     case 'dance': P.dancing=b(argv[0]);if(P.dancing)P.sitting=false;return 'dance='+P.dancing;
@@ -854,7 +900,7 @@ function pyBridge(name,argv){
 // 명령어 처리 본체
 const PYBR_NAMES=['fly','unfly','speed','jumppower','god','ungod','freeze','unfreeze','trail','untrail',
   'visible','invisible','alpha','size','color','bodycolor','headcolor','char','name','goto','move','jump',
-  'kill','announce','say','ff','unff','dance','undance','sit','unsit','fire','nofire','smoke','nosmoke',
+  'kill','damage','stats','announce','say','ff','unff','dance','undance','sit','unsit','fire','nofire','smoke','nosmoke',
   'sparkles','nosparkles','explode','time','ambient','fog','unfog'];
 function runHDCommand(text){
   let raw=(text!=null?text:'').trim();
@@ -935,8 +981,23 @@ function runHDCommand(text){
       case 'kill': {
         const target=args.join(' ').trim();
         if(!target){cmdLog('사용법: kill dummy1 (또는 bummy2)','cl-err');break;}
-        if(killDummy(target))cmdLog('kill: '+target+' 처치! (4초 후 리스폰)','cl-ok');
-        else cmdLog('대상을 찾을 수 없습니다: '+target,'cl-err');
+        if(killDummy(target))cmdLog('kill: '+target+' 처치! 킬: '+playerKills+' (4초 후 리스폰)','cl-ok');
+        else cmdLog('대상을 찾을 수 없거나 이미 죽었습니다: '+target,'cl-err');
+        break;
+      }
+      case 'damage': case 'dmg': {
+        const target=args[0]||'';const dmg=parseFloat(args[1])||20;
+        if(!target){cmdLog('사용법: damage dummy1 50','cl-err');break;}
+        if(damageDummy(target,dmg)){
+          const d=DUMMIES.find(x=>x.name.toLowerCase()===target.toLowerCase());
+          cmdLog('damage: '+target+' -'+dmg+'HP → HP '+(d?d.hp:0),'cl-ok');
+        }else cmdLog('대상 없음: '+target,'cl-err');
+        break;
+      }
+      case 'stats': case 'score': {
+        cmdLog('━━━ 전적 ━━━','cl-info');
+        cmdLog('킬: '+playerKills+' | 데스: '+playerDeaths,'cl-info');
+        DUMMIES.forEach(d=>cmdLog(d.name+': HP '+(d.dead?'DEAD':d.hp+'/'+d.maxHp),'cl-info'));
         break;
       }
       case 'skill-creator': {
@@ -964,6 +1025,21 @@ function runHDCommand(text){
 function syncFlyUI(){
   const el=document.getElementById('mob-fly-toggle');
   if(el)el.textContent = flyMode ? '✈ 플라이 ON' : '✈ 플라이 OFF';
+}
+function toggleFly(){
+  flyMode=!flyMode;
+  syncFlyUI();
+  if(flyMode){
+    outLine('[캐릭터] fly(True) → 비행 모드 ON','o-sys','outputArea');
+    // fly effect — guard W in case panel is closed on mobile
+    const fw=W||window.innerWidth;const fh=H||window.innerHeight;
+    for(let k=0;k<18;k++){
+      const ang=Math.random()*Math.PI*2,sp=1.5+Math.random()*3;
+      PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:30,maxLife:30,color:'#00aaff',size:3+Math.random()*2});
+    }
+  } else {
+    outLine('[캐릭터] fly(False) → 비행 모드 OFF','o-sys','outputArea');
+  }
 }
 function showCmdHelp(){
   cmdLog('━━━ HD 어드민 명령어 (2026) ━━━','cl-info');
@@ -1065,6 +1141,13 @@ function drawGame(){
   ctx.font='9px Courier New';ctx.textAlign='center';
   DUMMIES.forEach(d=>{
     if(d.dead)return;
+    // HP bar
+    const bw=34,bh=4,bx=d.x-camX+d.w/2-bw/2,by=d.y-camY-18;
+    ctx.fillStyle='#330000';ctx.fillRect(bx,by,bw,bh);
+    const hp=Math.max(0,d.hp/d.maxHp);
+    ctx.fillStyle=hp>0.5?'#00cc00':hp>0.25?'#ffcc00':'#ff3300';
+    ctx.fillRect(bx,by,bw*hp,bh);
+    ctx.strokeStyle='#005500';ctx.lineWidth=0.5;ctx.strokeRect(bx,by,bw,bh);
     ctx.fillStyle='#555';ctx.fillText(d.name,d.x-camX+d.w/2,d.y-camY-7);
     drawChar(d.x,d.y,d.w,d.h,-1,0,d.bodyColor||'#888',d.headColor||'#aaa',d.onGround,1);
   });
@@ -1181,6 +1264,28 @@ const AC_COMMANDS=[
   {name:'time',       insert:"time()",         back:1},
   {name:'ambient',    insert:"ambient()",      back:1},
   {name:'fog',        insert:"fog(True)"},
+  // 전투
+  {name:'kill',       insert:"kill('')",       back:2},
+  {name:'damage',     insert:"damage('', 30)", back:5},
+  {name:'stats',      insert:"stats()"},
+  // 추가 파이썬 내장함수
+  {name:'sorted',     insert:"sorted()",       back:1},
+  {name:'enumerate',  insert:"enumerate()",    back:1},
+  {name:'zip',        insert:"zip()",          back:1},
+  {name:'type',       insert:"type()",         back:1},
+  {name:'isinstance', insert:"isinstance(, )", back:3},
+  {name:'round',      insert:"round()",        back:1},
+  {name:'abs',        insert:"abs()",          back:1},
+  {name:'max',        insert:"max()",          back:1},
+  {name:'min',        insert:"min()",          back:1},
+  {name:'sum',        insert:"sum()",          back:1},
+  {name:'list',       insert:"list()",         back:1},
+  {name:'dict',       insert:"dict()"},
+  {name:'any',        insert:"any()",          back:1},
+  {name:'all',        insert:"all()",          back:1},
+  {name:'chr',        insert:"chr()",          back:1},
+  {name:'ord',        insert:"ord()",          back:1},
+  {name:'bool',       insert:"bool()",         back:1},
 ];
 const acBar=document.getElementById('acBar');
 
@@ -1232,11 +1337,37 @@ codeArea.addEventListener('blur', ()=>{ setTimeout(hideAutocomplete, 150); });
 // ═══════════════════════════════════════════
 //  PYTHON INTERPRETER
 // ═══════════════════════════════════════════
+function hideOutput(){
+  const o=document.getElementById('outputArea');
+  const btn=document.getElementById('outputToggleBtn');
+  o.classList.add('hidden-out');
+  btn.textContent='▲ 출력창 열기';
+  btn.classList.add('show');
+}
+function toggleOutput(){
+  const o=document.getElementById('outputArea');
+  const btn=document.getElementById('outputToggleBtn');
+  if(o.classList.contains('hidden-out')){
+    o.classList.remove('hidden-out');
+    btn.classList.remove('show');
+  } else {
+    hideOutput();
+  }
+}
+
 function getCode(){return document.getElementById('codeArea').value;}
 let printOutputs=[];
 
 function outLine(text,cls,tid){
-  const o=document.getElementById(tid||'outputArea');
+  const targetId=tid||'outputArea';
+  const o=document.getElementById(targetId);
+  if(!o)return;
+  // make sure output is visible
+  if(targetId==='outputArea'){
+    o.classList.remove('hidden-out');
+    const tb=document.getElementById('outputToggleBtn');
+    if(tb)tb.classList.remove('show');
+  }
   const d=document.createElement('div');d.className=cls||'o-out';d.textContent=text;
   o.appendChild(d);o.scrollTop=o.scrollHeight;
 }
@@ -1250,20 +1381,36 @@ function clearEditor(){
 function runCode(){
   const code=codeArea.value.trim();
   const o=document.getElementById('outputArea');
-  o.innerHTML='<div class="o-sys">>>> 실행 중...</div>';
+  o.innerHTML='<button id="outputClose" onclick="hideOutput()" title="출력창 닫기">✕ 닫기</button><div class="o-sys">>>> 실행 중...</div>';
+  o.classList.remove('hidden-out');
+  document.getElementById('outputToggleBtn').classList.remove('show');
   printOutputs=[];
   if(!code){outLine('# 코드를 입력하세요.','o-sys');return;}
+  // 실행 버튼 누를 때 배경 파티클 효과
+  const rW=W||300,rH=H||300;
+  for(let k=0;k<30;k++){
+    const x=Math.random()*rW,y=Math.random()*rH;
+    PARTICLES.push({x,y,vx:(Math.random()-0.5)*2,vy:-1-Math.random()*3,life:50,maxLife:50,color:Math.random()>.5?'#00ff41':'#00aaff',size:2+Math.random()*3});
+  }
   interpretPy(code,'outputArea');
 }
 
 function interpretPy(code,tid){
   const lines=code.split('\n');
   const env={};let i=0;
-
+  let _returnVal=undefined;let _hasReturn=false;
+  // ── import hd 사전 처리 ──
+  if(lines.some(l=>{const t=l.trim();return t==='import hd'||t==='from hd import *'||t.startsWith('from hd import ');})){
+    env['hd']={__isHDModule:true};
+    outLine('# import hd: HD 어드민 모듈 활성화됨','o-sys',tid||'outputArea');
+  }
   function evalE(expr){
     expr=expr.trim();
     // string
-    if((expr.startsWith("'")&&expr.endsWith("'"))||(expr.startsWith('"')&&expr.endsWith('"')))return expr.slice(1,-1);
+    if((expr.startsWith("'")&&expr.endsWith("'"))||(expr.startsWith('"')&&expr.endsWith('"'))){
+      // handle escape sequences
+      return expr.slice(1,-1).replace(/\\n/g,'\n').replace(/\\t/g,'\t').replace(/\\\\/g,'\\');
+    }
     // fstring
     if(/^f['"]/.test(expr)){
       const q=expr[1];
@@ -1273,30 +1420,143 @@ function interpretPy(code,tid){
     // number
     if(/^-?\d+(\.\d+)?$/.test(expr))return parseFloat(expr);
     if(expr==='True')return true;if(expr==='False')return false;if(expr==='None')return null;
+    // dict
+    if(expr.startsWith('{')&&expr.endsWith('}')){
+      const inner=expr.slice(1,-1).trim();
+      if(!inner)return {};
+      const obj={};
+      const pairs=splitA(inner);
+      for(const pair of pairs){
+        const ci=pair.indexOf(':');
+        if(ci<0)continue;
+        const k=evalE(pair.slice(0,ci).trim());
+        const v=evalE(pair.slice(ci+1).trim());
+        obj[k]=v;
+      }
+      return obj;
+    }
+    // tuple
+    if(expr.startsWith('(')&&expr.endsWith(')')&&!expr.includes('()')){
+      const inner=expr.slice(1,-1).trim();
+      if(!inner)return [];
+      return splitA(inner).map(a=>evalE(a.trim()));
+    }
     // list
     if(expr.startsWith('[')&&expr.endsWith(']')){
       const inner=expr.slice(1,-1).trim();
       return inner?splitA(inner).map(a=>evalE(a.trim())):[];
     }
+    // attribute access: obj.method() or obj.attr
+    const dotM=expr.match(/^(.+?)\.([a-zA-Z_]\w*)\((.*)\)$/s);
+    if(dotM){
+      try{
+        const obj=evalE(dotM[1]);const mth=dotM[2];const argStr=dotM[3];
+        const args=argStr?splitA(argStr).map(a=>{try{return evalE(a.trim());}catch{return a.trim();}}) : [];
+        // hd.xxx() → pyBridge 라우팅 (import hd 후 사용 가능)
+        if(obj&&obj.__isHDModule){
+          if(PYBR_NAMES.includes(mth)){const r=pyBridge(mth,args);outLine('[hd.'+mth+'] → '+r,'o-sys',tid||'outputArea');return r;}
+          runHDCommand(mth+' '+args.join(' '));return null;
+        }
+        if(typeof obj==='string'){
+          if(mth==='upper')return obj.toUpperCase();
+          if(mth==='lower')return obj.toLowerCase();
+          if(mth==='strip')return obj.trim();
+          if(mth==='split')return args.length?obj.split(args[0]):obj.split(' ');
+          if(mth==='replace')return obj.replace(args[0],args[1]);
+          if(mth==='startswith')return obj.startsWith(args[0]);
+          if(mth==='endswith')return obj.endsWith(args[0]);
+          if(mth==='find')return obj.indexOf(args[0]);
+          if(mth==='count')return obj.split(args[0]).length-1;
+          if(mth==='join')return Array.isArray(args[0])?args[0].join(obj):obj;
+          if(mth==='format'){let s=obj;args.forEach((a,i)=>{s=s.replace('{}',a).replace('{'+i+'}',a);});return s;}
+        }
+        if(Array.isArray(obj)){
+          if(mth==='append'){obj.push(args[0]);return null;}
+          if(mth==='pop')return args.length?obj.splice(args[0],1)[0]:obj.pop();
+          if(mth==='insert'){obj.splice(args[0],0,args[1]);return null;}
+          if(mth==='remove'){const idx=obj.indexOf(args[0]);if(idx>=0)obj.splice(idx,1);return null;}
+          if(mth==='reverse'){obj.reverse();return null;}
+          if(mth==='sort'){obj.sort((a,b)=>typeof a==='number'?a-b:String(a).localeCompare(String(b)));return null;}
+          if(mth==='index')return obj.indexOf(args[0]);
+          if(mth==='count')return obj.filter(x=>x===args[0]).length;
+          if(mth==='extend'){if(Array.isArray(args[0]))obj.push(...args[0]);return null;}
+          if(mth==='copy')return [...obj];
+          if(mth==='clear'){obj.length=0;return null;}
+        }
+        if(typeof obj==='object'&&obj!==null&&!Array.isArray(obj)){
+          if(mth==='keys')return Object.keys(obj);
+          if(mth==='values')return Object.values(obj);
+          if(mth==='items')return Object.entries(obj);
+          if(mth==='get')return obj[args[0]]!==undefined?obj[args[0]]:(args[1]!==undefined?args[1]:null);
+          if(mth==='pop'){const v=obj[args[0]];delete obj[args[0]];return v;}
+          if(mth==='update'){Object.assign(obj,args[0]);return null;}
+          if(mth==='copy')return {...obj};
+          if(mth==='clear'){for(const k in obj)delete obj[k];return null;}
+        }
+      }catch(e){}
+    }
+    // attribute get: obj.attr (no call)
+    const dotA=expr.match(/^(.+?)\.([a-zA-Z_]\w*)$/);
+    if(dotA){
+      try{
+        const obj=evalE(dotA[1]);const attr=dotA[2];
+        if(typeof obj==='string'){if(attr==='upper')return obj.toUpperCase;return obj[attr];}
+        if(Array.isArray(obj)){if(attr==='length'||attr==='__len__')return obj.length;}
+        if(obj&&typeof obj==='object'&&attr in obj)return obj[attr];
+      }catch(e){}
+    }
+    // index access: obj[key]
+    const idxM=expr.match(/^(.+)\[(.+)\]$/);
+    if(idxM){
+      try{
+        const obj=evalE(idxM[1]);
+        const key=evalE(idxM[2]);
+        if(Array.isArray(obj)){const k=Number(key);return k<0?obj[obj.length+k]:obj[k];}
+        if(typeof obj==='string'){const k=Number(key);return k<0?obj[obj.length+k]:obj[k];}
+        if(typeof obj==='object'&&obj!==null)return obj[key];
+      }catch(e){}
+    }
     // builtin calls
-    const bm=expr.match(/^(\w+)\((.*)?\)$/s);
+    const bm=expr.match(/^(\w+)\((.*?)?\)$/s);
     if(bm){
-      const fn=bm[1],arg=bm[2]||'';
-      if(fn==='len'){const v=evalE(arg);return(typeof v==='string'||Array.isArray(v))?v.length:0;}
+      const fn=bm[1],arg=(bm[2]||'').trim();
+      if(fn==='len'){const v=evalE(arg);return(typeof v==='string'||Array.isArray(v))?v.length:typeof v==='object'&&v?Object.keys(v).length:0;}
       if(fn==='range'){
         const ps=splitA(arg).map(a=>parseInt(evalE(a.trim())));
         const s2=ps.length>1?ps[0]:0,e2=ps.length>1?ps[1]:ps[0],st=ps[2]||1;
-        const arr=[];for(let x=s2;x<e2;x+=st)arr.push(x);return arr;
+        const arr=[];if(st>0){for(let x=s2;x<e2;x+=st)arr.push(x);}else{for(let x=s2;x>e2;x+=st)arr.push(x);}return arr;
       }
       if(fn==='str')return String(evalE(arg));
-      if(fn==='int')return parseInt(evalE(arg));
-      if(fn==='float')return parseFloat(evalE(arg));
-      if(fn==='list'){const v=evalE(arg);return Array.isArray(v)?v:[];}
+      if(fn==='int'){const v=evalE(arg);return parseInt(v);}
+      if(fn==='float'){const v=evalE(arg);return parseFloat(v);}
+      if(fn==='bool'){const v=evalE(arg);return !!v;}
+      if(fn==='list'){const v=evalE(arg);return Array.isArray(v)?v:typeof v==='string'?v.split(''):[];}
+      if(fn==='dict'){return {};}
+      if(fn==='tuple'){const v=evalE(arg);return Array.isArray(v)?v:[];}
+      if(fn==='set'){const v=evalE(arg);return Array.isArray(v)?[...new Set(v)]:[];}
       if(fn==='abs')return Math.abs(evalE(arg));
-      if(fn==='max'){const ps=splitA(arg).map(a=>evalE(a.trim()));return Math.max(...ps);}
-      if(fn==='min'){const ps=splitA(arg).map(a=>evalE(a.trim()));return Math.min(...ps);}
+      if(fn==='max'){const ps=splitA(arg).map(a=>evalE(a.trim()));return ps.length===1&&Array.isArray(ps[0])?Math.max(...ps[0]):Math.max(...ps);}
+      if(fn==='min'){const ps=splitA(arg).map(a=>evalE(a.trim()));return ps.length===1&&Array.isArray(ps[0])?Math.min(...ps[0]):Math.min(...ps);}
       if(fn==='sum'){const v=evalE(arg);return Array.isArray(v)?v.reduce((a,b)=>a+b,0):0;}
+      if(fn==='round'){const ps=splitA(arg).map(a=>evalE(a.trim()));return ps.length>1?parseFloat(ps[0].toFixed(ps[1])):Math.round(ps[0]);}
+      if(fn==='sorted'){const v=evalE(arg);const a=[...v];a.sort((x,y)=>typeof x==='number'?x-y:String(x).localeCompare(String(y)));return a;}
+      if(fn==='reversed'){const v=evalE(arg);return Array.isArray(v)?[...v].reverse():v;}
+      if(fn==='enumerate'){const v=evalE(arg);return Array.isArray(v)?v.map((x,i)=>[i,x]):[];}
+      if(fn==='zip'){const ps=splitA(arg).map(a=>evalE(a.trim()));const len=Math.min(...ps.map(a=>a.length));const r=[];for(let z=0;z<len;z++)r.push(ps.map(a=>a[z]));return r;}
+      if(fn==='type'){const v=evalE(arg);if(v===null)return 'NoneType';if(Array.isArray(v))return 'list';return typeof v;}
+      if(fn==='isinstance'){const ps=splitA(arg).map(a=>evalE(a.trim()));const v=ps[0],t=ps[1];if(t==='int'||t==='float')return typeof v==='number';if(t==='str')return typeof v==='string';if(t==='bool')return typeof v==='boolean';if(t==='list')return Array.isArray(v);return false;}
       if(fn==='input'){const p=arg?evalE(arg):'';return window.prompt(String(p))||'';}
+      if(fn==='chr'){return String.fromCharCode(evalE(arg));}
+      if(fn==='ord'){const s=String(evalE(arg));return s.charCodeAt(0);}
+      if(fn==='hex'){return '0x'+Math.abs(evalE(arg)).toString(16);}
+      if(fn==='bin'){return '0b'+Math.abs(evalE(arg)).toString(2);}
+      if(fn==='oct'){return '0o'+Math.abs(evalE(arg)).toString(8);}
+      if(fn==='pow'){const ps=splitA(arg).map(a=>evalE(a.trim()));return Math.pow(ps[0],ps[1]);}
+      if(fn==='divmod'){const ps=splitA(arg).map(a=>evalE(a.trim()));return [Math.floor(ps[0]/ps[1]),ps[0]%ps[1]];}
+      if(fn==='any'){const v=evalE(arg);return Array.isArray(v)?v.some(Boolean):false;}
+      if(fn==='all'){const v=evalE(arg);return Array.isArray(v)?v.every(Boolean):false;}
+      if(fn==='map'){const ps=splitA(arg);return null;} // simplified
+      if(fn==='filter'){return null;} // simplified
       if(fn==='print'){
         const ps=splitA(arg).map(a=>{try{return String(evalE(a.trim()));}catch{return'[err]';}});
         const res=ps.join(' ');
@@ -1328,18 +1588,23 @@ function interpretPy(code,tid){
         return r;
       }
       // user-defined
-      if(fn in env && typeof env[fn]==='function') return env[fn]();
+      if(fn in env && typeof env[fn]==='function'){
+        _hasReturn=false;_returnVal=undefined;
+        const ret=env[fn](...(arg?splitA(arg).map(a=>{try{return evalE(a.trim());}catch{return null;}}):[]));
+        return _hasReturn?_returnVal:ret;
+      }
     }
     // variable
-    if(/^[a-zA-Z_]\w*$/.test(expr)){if(expr in env)return env[expr];throw new Error("NameError: '"+expr+"'");}
+    if(/^[a-zA-Z_]\w*$/.test(expr)){if(expr in env)return env[expr];throw new Error("NameError: name '"+expr+"' is not defined");}
     // arithmetic / comparison
     try{
       const safe=expr.replace(/\b([a-zA-Z_]\w*)\b/g,(_,n)=>{
         if(n in env)return JSON.stringify(env[n]);
         if(['True','False','None','and','or','not','in','is'].includes(n))return n;
         throw new Error("NameError: '"+n+"'");
-      }).replace(/\band\b/g,'&&').replace(/\bor\b/g,'||').replace(/\bnot\b/g,'!').replace(/\bTrue\b/g,'true').replace(/\bFalse\b/g,'false').replace(/\bNone\b/g,'null');
-      return Function('"use strict";return ('+safe+')')();
+      }).replace(/\band\b/g,'&&').replace(/\bor\b/g,'||').replace(/\bnot\b/g,'!').replace(/\bTrue\b/g,'true').replace(/\bFalse\b/g,'false').replace(/\bNone\b/g,'null').replace(/\*\*/g,'**');
+      // handle ** power
+      return Function('"use strict";return ('+safe.replace(/(\S+)\s*\*\*\s*(\S+)/g,'Math.pow($1,$2)') +')')();
     }catch(e){throw new Error('SyntaxError: '+expr);}
   }
 
@@ -1354,67 +1619,124 @@ function interpretPy(code,tid){
   function getInd(line){let n=0;for(const c of line){if(c===' ')n++;else if(c==='\t')n+=4;else break;}return n;}
   function colBlock(si,baseInd){const b=[];let j=si;
     while(j<lines.length){const l=lines[j];if(!l.trim()||l.trim().startsWith('#')){b.push('');j++;continue;}if(getInd(l)<=baseInd)break;b.push(l.trim());j++;}return{b,next:j};}
-  function exBlock(blines){for(const bl of blines){if(!bl.trim()||bl.trim().startsWith('#'))continue;exLine(bl.trim());}}
+  function exBlock(blines){for(const bl of blines){if(!bl.trim()||bl.trim().startsWith('#'))continue;if(_hasReturn)break;exLine(bl.trim());}}
 
   function exLine(line){
     line=line.trim();if(!line||line.startsWith('#'))return;
+    // import hd / from hd import * 처리
+    if(line==='import hd'||line==='from hd import *'||line.startsWith('from hd import '))return;
+    // return statement
+    if(line.startsWith('return')){
+      const expr=line.slice(6).trim();
+      _returnVal=expr?evalE(expr):null;
+      _hasReturn=true;return;
+    }
     // print
     if(line.startsWith('print(')){
-      const m=line.match(/^print\((.*)?\)$/s);
-      if(!m){outLine('[SyntaxError] '+line,'o-err',tid);return;}
-      const ps=splitA(m[1]).map(a=>{try{const v=evalE(a.trim());return v===null?'None':String(v);}catch(e){return '['+e.message+']';}});
-      const res=ps.join(' ');
-      outLine(res,/^-?\d+\.?\d*$/.test(res.trim())?'o-num':'o-out',tid);
-      printOutputs.push(res);showBubble(res);return;
+      const m=line.match(/^print\((.*?)\)$/s);
+      if(m){
+        const ps=splitA(m[1]).map(a=>{try{const v=evalE(a.trim());return v===null?'None':String(v);}catch(e){return '['+e.message+']';}});
+        const sep_m=line.match(/sep=['"](.+?)['"]/);const end_m=line.match(/end=['"](.+?)['"]/);
+        const sep_c=sep_m?sep_m[1]:' ';
+        const res=ps.join(sep_c);
+        outLine(res,/^-?\d+\.?\d*$/.test(res.trim())?'o-num':'o-out',tid);
+        printOutputs.push(res);showBubble(res);return;
+      }
     }
     // augmented assign
-    const aug=line.match(/^([a-zA-Z_]\w*)\s*(\+=|-=|\*=|\/=|%=)(.+)$/);
-    if(aug){try{const cur=env[aug[1]]||0,val=evalE(aug[3].trim());
-      if(aug[2]==='+=')env[aug[1]]=cur+val;else if(aug[2]==='-=')env[aug[1]]=cur-val;
+    const aug=line.match(/^([a-zA-Z_]\w*)\s*(\+=|-=|\*=|\/=|%=|\*\*=|\/\/=)(.+)$/);
+    if(aug){try{const cur=env[aug[1]]!=null?env[aug[1]]:0,val=evalE(aug[3].trim());
+      if(aug[2]==='+=')env[aug[1]]=typeof cur==='string'||typeof val==='string'?String(cur)+String(val):cur+val;
+      else if(aug[2]==='-=')env[aug[1]]=cur-val;
       else if(aug[2]==='*=')env[aug[1]]=cur*val;else if(aug[2]==='/=')env[aug[1]]=cur/val;
-      else if(aug[2]==='%=')env[aug[1]]=cur%val;}catch(e){outLine('['+e.message+']','o-err',tid);}return;}
+      else if(aug[2]==='%=')env[aug[1]]=cur%val;
+      else if(aug[2]==='**=')env[aug[1]]=Math.pow(cur,val);
+      else if(aug[2]==='//=')env[aug[1]]=Math.floor(cur/val);
+    }catch(e){outLine('['+e.message+']','o-err',tid);}return;}
+    // list/dict index assign: a[0] = x
+    const idxAss=line.match(/^([a-zA-Z_]\w*)\[(.+)\]\s*=(?!=)\s*(.+)$/);
+    if(idxAss){try{const obj=env[idxAss[1]];const key=evalE(idxAss[2]);const val=evalE(idxAss[3]);
+      if(Array.isArray(obj)){obj[Number(key)]=val;}else if(typeof obj==='object'&&obj!==null){obj[key]=val;}
+    }catch(e){outLine('['+e.message+']','o-err',tid);}return;}
     // assignment
     const ass=line.match(/^([a-zA-Z_]\w*)\s*=(?!=)\s*(.+)$/);
-    if(ass&&!['if','while','for'].some(k=>line.startsWith(k))){
+    if(ass&&!['if','while','for','def'].some(k=>line.startsWith(k))){
       try{env[ass[1]]=evalE(ass[2]);}catch(e){outLine('['+e.message+']','o-err',tid);}return;}
-    // standalone expr (e.g., function call)
+    // standalone expr (e.g., function call, method call)
     try{evalE(line);}catch{outLine('[실행불가] '+line,'o-sys',tid);}
   }
 
   try{
     while(i<lines.length){
+      if(_hasReturn)break;
       const raw=lines[i],line=raw.trim();
       if(!line||line.startsWith('#')){i++;continue;}
       const ind=getInd(raw);
 
-      // for
+      // for with list/string
       if(/^for\s+\w+\s+in\s+.+:$/.test(line)){
         const m=line.match(/^for\s+(\w+)\s+in\s+(.+):$/);
-        if(m){const{b,next}=colBlock(i+1,ind);const iter=evalE(m[2]);
-          for(const val of(Array.isArray(iter)?iter:[])){env[m[1]]=val;exBlock(b);}i=next;continue;}
+        if(m){const{b,next}=colBlock(i+1,ind);
+          let iter;try{iter=evalE(m[2]);}catch(e){outLine('['+e.message+']','o-err',tid);i=next;continue;}
+          if(typeof iter==='string')iter=iter.split('');
+          if(!Array.isArray(iter)){outLine('[TypeError] '+m[2]+' is not iterable','o-err',tid);i=next;continue;}
+          for(const val of iter){if(_hasReturn)break;env[m[1]]=val;exBlock(b);}
+          i=next;continue;
+        }
       }
       // while
       if(/^while\s+.+:$/.test(line)){
         const m=line.match(/^while\s+(.+):$/);
         if(m){const{b,next}=colBlock(i+1,ind);let g=0;
-          while(g++<1000){let cv;try{cv=evalE(m[1]);}catch{break;}if(!cv)break;exBlock(b);}i=next;continue;}
+          while(g++<2000){let cv;try{cv=evalE(m[1]);}catch{break;}if(!cv)break;if(_hasReturn)break;exBlock(b);}
+          i=next;continue;}
       }
-      // if
+      // if / elif / else chain
       if(/^if\s+.+:$/.test(line)){
-        const m=line.match(/^if\s+(.+):$/);
-        if(m){let cv;try{cv=evalE(m[1]);}catch(e){outLine('['+e.message+']','o-err',tid);i++;continue;}
-          const{b,next}=colBlock(i+1,ind);if(cv)exBlock(b);i=next;continue;}
+        let chains=[{type:'if',cond:line.match(/^if\s+(.+):$/)[1],start:i}];
+        let{b,next}=colBlock(i+1,ind);
+        chains[0].block=b;
+        let j=next;
+        while(j<lines.length){
+          const rl=lines[j],tl=rl.trim();
+          if(!tl){j++;continue;}
+          if(getInd(rl)!==ind)break;
+          if(/^elif\s+.+:$/.test(tl)){
+            const em=tl.match(/^elif\s+(.+):$/);
+            const eb=colBlock(j+1,ind);
+            chains.push({type:'elif',cond:em[1],block:eb.b});j=eb.next;
+          } else if(tl==='else:'){
+            const eb=colBlock(j+1,ind);
+            chains.push({type:'else',block:eb.b});j=eb.next;break;
+          } else break;
+        }
+        let executed=false;
+        for(const ch of chains){
+          if(ch.type==='else'){if(!executed)exBlock(ch.block);break;}
+          let cv;try{cv=evalE(ch.cond);}catch(e){outLine('['+e.message+']','o-err',tid);break;}
+          if(cv){exBlock(ch.block);executed=true;break;}
+        }
+        i=j;continue;
       }
-      // def
+      // def with params
       if(/^def\s+\w+\s*\(/.test(line)&&line.endsWith(':')){
         const nm=line.match(/^def\s+(\w+)/)[1];
+        const paramStr=(line.match(/\(([^)]*)\)/)||['',''])[1].trim();
+        const params=paramStr?paramStr.split(',').map(p=>p.trim().split('=')[0].trim()).filter(Boolean):[];
+        const defaults={};
+        if(paramStr){paramStr.split(',').forEach(p=>{const pp=p.trim();const eqi=pp.indexOf('=');if(eqi>=0){const pname=pp.slice(0,eqi).trim();const pdef=pp.slice(eqi+1).trim();try{defaults[pname]=evalE(pdef);}catch{}}});}
         const{b,next}=colBlock(i+1,ind);
-        env[nm]=()=>{exBlock(b);return null;};
-        outLine('# 함수 정의됨: '+nm+'()','o-sys',tid);i=next;continue;
-      }
-      // function call with ()
-      if(/^\w+\(\)$/.test(line)&&(line.slice(0,-2) in env)){
-        const fn=line.slice(0,-2);if(typeof env[fn]==='function')env[fn]();i++;continue;
+        env[nm]=(...callArgs)=>{
+          const oldEnv={...env};
+          params.forEach((p,pi)=>{env[p]=callArgs[pi]!==undefined?callArgs[pi]:(defaults[p]!==undefined?defaults[p]:null);});
+          _hasReturn=false;_returnVal=undefined;
+          exBlock(b);
+          const ret=_hasReturn?_returnVal:null;
+          _hasReturn=false;_returnVal=undefined;
+          params.forEach(p=>{if(p in oldEnv)env[p]=oldEnv[p];else delete env[p];});
+          return ret;
+        };
+        outLine('# 함수 정의됨: '+nm+'('+params.join(', ')+')','o-sys',tid);i=next;continue;
       }
       exLine(line);i++;
     }
@@ -1500,6 +1822,89 @@ fly(True)
 dance(True)
 sparkles(True)
 print('명령어 함수로 캐릭터를 바로 조종했어요!')`,
+
+`# 예제 12: 딕셔너리 (dict)
+player = {'name': '네오', 'hp': 100, 'level': 5}
+print('이름:', player['name'])
+print('HP:', player['hp'])
+print('레벨:', player['level'])
+player['hp'] = 80
+print('HP 변경 후:', player['hp'])`,
+
+`# 예제 13: 리스트 메소드
+nums = [3, 1, 4, 1, 5, 9, 2, 6]
+nums.sort()
+print('정렬 후:', nums)
+nums.append(100)
+print('추가 후:', nums)
+print('최대값:', max(nums))
+print('합계:', sum(nums))`,
+
+`# 예제 14: 함수 (인자 사용)
+def greet(name):
+    print(f'안녕하세요, {name}님!')
+
+def add(a, b):
+    return a + b
+
+greet('플레이어')
+result = add(10, 20)
+print('10 + 20 =', result)`,
+
+`# 예제 15: elif / else
+score = 75
+if score >= 90:
+    print('A학점')
+elif score >= 80:
+    print('B학점')
+elif score >= 70:
+    print('C학점')
+else:
+    print('D학점 이하')`,
+
+`# 예제 16: kill & damage 명령어
+damage('dummy1', 30)
+print('dummy1에게 30 데미지!')
+damage('dummy1', 30)
+print('dummy1에게 30 데미지 추가!')
+damage('dummy1', 50)
+print('dummy1 처치!')`,
+
+`# 예제 17: 중첩 반복문 + 조건
+results = []
+for i in range(1, 6):
+    for j in range(1, 6):
+        if i == j:
+            results.append(i * j)
+print('대각선 곱:', results)
+print('합계:', sum(results))`,
+
+`# 예제 18: 문자열 메소드
+text = 'Hello, Python World!'
+print('대문자:', text.upper())
+print('소문자:', text.lower())
+print('길이:', len(text))
+words = text.split(' ')
+print('단어 수:', len(words))
+print('첫 단어:', words[0])`,
+
+`# 예제 19: import hd — HD 어드민 모드
+import hd
+hd.say('어드민 모드 활성화!')
+hd.color('#ff00ff')
+hd.size(1.8)
+hd.fly(True)
+hd.sparkles(True)
+hd.announce('HD 어드민: 명령어 실행 완료!')`,
+
+`# 예제 20: import hd — 전투 어드민
+import hd
+hd.god(True)
+hd.damage('dummy1', 50)
+print('dummy1에게 50 데미지!')
+hd.kill('bummy2')
+print('bummy2 처치!')
+hd.stats()`,
 ];
 let exIdx=0;
 function loadExample(){codeArea.value=EXAMPLES[exIdx%EXAMPLES.length];exIdx++;updateLineNums();}
@@ -1624,22 +2029,33 @@ function renderBlocks(){
 }
 
 function runBlocks(){
+  if(blocks.length===0){
+    const bo=document.getElementById('blockBottom');
+    bo.innerHTML='<div style="color:var(--red)">❗ 블록을 먼저 추가하세요!</div>';
+    return;
+  }
   const code=blocksToCode();
   const bo=document.getElementById('blockBottom');bo.innerHTML='';
   printOutputs=[];
   const codeDiv=document.createElement('div');
-  codeDiv.style.cssText='color:var(--gdim);border-left:2px solid var(--gdim);padding-left:6px;margin-bottom:4px;white-space:pre;';
+  codeDiv.style.cssText='color:var(--gdim);border-left:2px solid var(--gdim);padding-left:6px;margin-bottom:4px;white-space:pre;font-size:10px;';
   codeDiv.textContent='[ 생성된 코드 ]\n'+code;
   bo.appendChild(codeDiv);
-  const sep=document.createElement('div');sep.style.cssText='color:var(--gdim);margin:3px 0;';sep.textContent='[ 출력 결과 ]';
+  const sep=document.createElement('div');sep.style.cssText='color:var(--gdim);margin:3px 0;font-size:10px;';sep.textContent='[ 출력 결과 ]';
   bo.appendChild(sep);
-  document.getElementById('outputArea').innerHTML='';
-  interpretPy(code,'outputArea');
-  document.getElementById('outputArea').querySelectorAll('div').forEach(d=>{
-    if(d.className==='o-sys')return;
+  // Run in a temporary output area then copy results
+  const tempId='_blockTemp';
+  let tempDiv=document.getElementById(tempId);
+  if(!tempDiv){tempDiv=document.createElement('div');tempDiv.id=tempId;tempDiv.style.display='none';document.body.appendChild(tempDiv);}
+  tempDiv.innerHTML='';
+  interpretPy(code,tempId);
+  // copy results to blockBottom
+  Array.from(tempDiv.children).forEach(d=>{
+    // skip internal system messages (# 로 시작) but keep errors and outputs
+    if(d.className==='o-sys'&&d.textContent.startsWith('#')&&!d.textContent.startsWith('#!')&&!d.textContent.startsWith('['))return;
     const nd=document.createElement('div');
-    nd.style.color=d.className==='o-err'?'#ff3300':d.className==='o-num'?'#00aaff':'#00c030';
-    nd.style.fontSize='10px';nd.textContent=d.textContent;bo.appendChild(nd);
+    nd.style.color=d.className==='o-err'?'#ff3300':d.className==='o-num'?'#00aaff':d.className==='o-sys'?'var(--gdim)':'#00c030';
+    nd.style.fontSize='11px';nd.textContent=d.textContent;bo.appendChild(nd);
   });
   bo.scrollTop=bo.scrollHeight;
 }
@@ -1681,19 +2097,27 @@ async function sendAi(){
   inp.value='';
   addAiMsg(text,'user');
   aiHist.push({role:'user',content:text});
-  const th=addAiMsg('답변 생성 중...','thinking');
+  const th=addAiMsg('💭 답변 생성 중...','thinking');
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:SYS,messages:aiHist})
+      headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,system:SYS,messages:aiHist})
     });
+    if(!r.ok&&r.status===0){throw new Error('네트워크 오류 (CORS)');}
     const data=await r.json();
     th.remove();
+    if(data.error){
+      addAiMsg('⚠️ AI 오류: '+data.error.message+'\n\n💡 이 파일을 claude.ai 아티팩트로 열거나 Anthropic API 키가 있는 환경에서 실행하면 AI 기능이 작동합니다.\n\n현재 Python 에디터·블록코딩·게임은 모두 정상 작동 중입니다!','bot');
+      return;
+    }
     const reply=data.content?.[0]?.text||'[응답 없음]';
     aiHist.push({role:'assistant',content:reply});
     addAiMsg(reply,'bot');
-  }catch(e){th.remove();addAiMsg('[연결 오류] '+e.message,'sys');}
+  }catch(e){
+    th.remove();
+    addAiMsg('⚠️ 연결 실패: '+e.message+'\n\n💡 AI는 claude.ai 아티팩트 환경에서 작동합니다. 에디터/블록코딩/게임은 오프라인으로 완전히 동작합니다!','bot');
+  }
 }
 function clearAi(){aiHist=[];document.getElementById('aiLog').innerHTML='<div class="amsg sys">대화가 초기화되었습니다.</div>';}
 function askAiCode(){const c=getCode();if(!c.trim()){alert('에디터에 코드를 입력하세요!');return;}sw('ai');document.getElementById('aiInput').value='이 코드를 분석하고 각 줄을 설명해줘:\n\n'+c;sendAi();}
@@ -1752,6 +2176,37 @@ const CMD_GROUPS=[
     {name:'time(0~1)',       desc:'시간대 밝기 (0=밤, 1=낮)', ex:'time(0.2)'},
     {name:'ambient(0~1)',    desc:'주변광 밝기', ex:'ambient(0.5)'},
     {name:'fog(True)',       desc:'안개 효과 ON/OFF', ex:'fog(True)'},
+  ]},
+  {title:'⚔️ 전투/킬', color:'#ff3300', cmds:[
+    {name:'kill(대상)',      desc:'더미 캐릭터를 즉시 처치 (4초 후 리스폰)', ex:"kill('dummy1')"},
+    {name:'damage(대상, 데미지)', desc:'더미에게 데미지 (HP 0이면 킬)', ex:"damage('dummy1', 30)"},
+    {name:'stats()',         desc:'킬/데스 전적 및 적 HP 출력', ex:'stats()'},
+    {name:'explode()',       desc:'현재 위치에서 폭발 효과', ex:'explode()'},
+  ]},
+  {title:'🔐 HD 어드민 (import hd)', color:'#ff00ff', cmds:[
+    {name:'import hd',           desc:'HD 어드민 모듈 불러오기. 이걸 먼저 써야 hd.xxx() 사용 가능', ex:'import hd'},
+    {name:'hd.fly(True)',        desc:'비행 모드 ON/OFF', ex:'import hd\nhd.fly(True)'},
+    {name:'hd.speed(숫자)',      desc:'이동 속도 변경', ex:'import hd\nhd.speed(15)'},
+    {name:'hd.god(True)',        desc:'무적 모드 ON', ex:'import hd\nhd.god(True)'},
+    {name:'hd.kill(대상)',       desc:'더미 즉시 처치', ex:"import hd\nhd.kill('dummy1')"},
+    {name:'hd.damage(대상,dmg)', desc:'더미에게 데미지', ex:"import hd\nhd.damage('dummy1', 50)"},
+    {name:'hd.dance(True)',      desc:'춤 애니메이션', ex:'import hd\nhd.dance(True)'},
+    {name:'hd.color(색상)',      desc:'몸 색상 변경', ex:"import hd\nhd.color('#ff0000')"},
+    {name:'hd.size(배율)',       desc:'크기 변경', ex:'import hd\nhd.size(2)'},
+    {name:'hd.say(메시지)',      desc:'말풍선', ex:"import hd\nhd.say('어드민이다!')"},
+    {name:'hd.announce(메시지)', desc:'알림 배너', ex:"import hd\nhd.announce('이벤트 시작!')"},
+    {name:'hd.explode()',        desc:'폭발 효과', ex:'import hd\nhd.explode()'},
+    {name:'hd.sparkles(True)',   desc:'반짝임 효과', ex:'import hd\nhd.sparkles(True)'},
+    {name:'hd.fog(True)',        desc:'안개 효과', ex:'import hd\nhd.fog(True)'},
+    {name:'hd.time(0~1)',        desc:'시간대 변경 (0=밤, 1=낮)', ex:'import hd\nhd.time(0.0)'},
+    {name:'hd.stats()',          desc:'킬/데스 전적 출력', ex:'import hd\nhd.stats()'},
+    {name:'hd.freeze(True)',     desc:'캐릭터 동결', ex:'import hd\nhd.freeze(True)'},
+    {name:'hd.trail(True)',      desc:'이동 흔적', ex:'import hd\nhd.trail(True)'},
+    {name:'hd.ff(True)',         desc:'보호막', ex:'import hd\nhd.ff(True)'},
+    {name:'hd.fire(True)',       desc:'화염 효과', ex:'import hd\nhd.fire(True)'},
+    {name:'hd.smoke(True)',      desc:'연기 효과', ex:'import hd\nhd.smoke(True)'},
+    {name:'hd.ambient(0~1)',     desc:'주변광 밝기', ex:'import hd\nhd.ambient(0.3)'},
+    {name:'hd.goto(x,y)',        desc:'순간이동', ex:'import hd\nhd.goto(400,200)'},
   ]},
 ];
 
@@ -1929,13 +2384,13 @@ function toggleMusic(){
   if(musicOn){
     masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
     masterGain.gain.linearRampToValueAtTime(0.38, audioCtx.currentTime+1.4);
-    btn.textContent = '🔊 음악';
+    btn.textContent = '음악 ON';
     btn.classList.add('active');
     scheduleBlips();
   } else {
     masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
     masterGain.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime+0.6);
-    btn.textContent = '🔈 음악';
+    btn.textContent = '음악';
     btn.classList.remove('active');
     clearTimeout(blipTimer);
   }
@@ -2049,6 +2504,23 @@ gameLoop();
 // 첫 로드 후 추가 리사이즈 (모바일 세로/가로 모두 대응)
 setTimeout(()=>{doFullResize();}, 200);
 setTimeout(()=>{doFullResize();}, 600);
+
+// ── 시작 이펙트 (처음 로드 시 화면에 폭발 파티클)
+setTimeout(()=>{
+  const sw=window.innerWidth,sh=window.innerHeight;
+  for(let k=0;k<60;k++){
+    const x=(Math.random()*0.8+0.1)*sw, y=(Math.random()*0.6+0.2)*sh;
+    const ang=Math.random()*Math.PI*2, sp=0.5+Math.random()*4;
+    PARTICLES.push({
+      x,y,
+      vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-1,
+      life:80+Math.random()*60,maxLife:140,
+      color:['#00ff41','#00aaff','#ffff00','#ff3300','#cc00ff'][Math.floor(Math.random()*5)],
+      size:2+Math.random()*4
+    });
+  }
+  announce('🎮 Python Matrix Lab 시작! 코드를 실행하면 캐릭터가 움직여요!');
+}, 800);
 </script>
 </body>
 </html>
