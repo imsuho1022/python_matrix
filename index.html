@@ -479,7 +479,7 @@ canvas{display:block;}
     <div id="invModal" style="display:none;position:absolute;inset:0;z-index:50;background:rgba(0,0,0,0.78);align-items:center;justify-content:center;">
       <div style="background:#061006;border:1px solid var(--green);border-radius:6px;width:min(360px,86%);max-height:78%;display:flex;flex-direction:column;box-shadow:0 0 24px rgba(0,255,65,0.25);">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--gdim);">
-          <b style="color:var(--green);font-size:13px;">🎒 인벤토리 (장착은 1개씩만)</b>
+          <b style="color:var(--green);font-size:13px;">인벤토리</b>
           <button class="btn danger" onclick="toggleInventoryUI()">✕ 닫기</button>
         </div>
         <div id="invList" style="overflow-y:auto;padding:10px 12px;flex:1;"></div>
@@ -550,16 +550,8 @@ canvas{display:block;}
         <span class="label">AI Python 튜터 (무제한 질문)</span>
         <button class="btn danger" onclick="clearAi()">대화 초기화</button>
       </div>
-      <!-- API KEY ROW -->
-      <div id="apiKeyRow" style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--gdim);flex-shrink:0;background:#000a00;">
-        <span style="font-size:10px;color:var(--gdim);white-space:nowrap;">🔑 API 키:</span>
-        <input id="apiKeyInput" type="password" placeholder="sk-ant-... (Anthropic API 키 입력)" autocomplete="off"
-          style="flex:1;background:#050f05;border:1px solid var(--gdim);color:var(--green);
-                 font-family:'Courier New',monospace;font-size:10px;padding:3px 7px;border-radius:2px;outline:none;min-width:0;"
-          oninput="saveApiKey()" />
-        <button onclick="toggleApiKeyVis()" style="background:#001a00;border:1px solid var(--gdim);color:var(--gdim);font-family:'Courier New',monospace;font-size:10px;padding:2px 6px;cursor:pointer;border-radius:2px;" id="apiKeyEyeBtn">보기</button>
-        <span id="apiKeyStatus" style="font-size:10px;color:var(--gdim);white-space:nowrap;"></span>
-      </div>
+      <!-- API KEY ROW 제거됨 - 자동 연결 -->
+      <div id="apiKeyRow" style="display:none;"></div>
       <div id="aiQuickWrap">
         <button class="qbtn" onclick="aiQ('Python이 뭐야? 초보자한테 쉽게 설명해줘')">Python이란?</button>
         <button class="qbtn" onclick="aiQ('변수가 뭐야? 예제도 알려줘')">변수란?</button>
@@ -685,7 +677,6 @@ function killDummy(name){
   d.respawnAt=Date.now()+4000;
   playerKills++;
   explodeAt(d.x+d.w/2,d.y+d.h/2);
-  announce('💀 '+d.name+' 처치! (킬: '+playerKills+')');
   return true;
 }
 function damageDummy(name,dmg){
@@ -923,9 +914,9 @@ function checkSecretChest(){
   }
   if(aabb(P.x,P.y,P.w,P.h,SECRET_CHEST.x-10,SECRET_CHEST.y-10,SECRET_CHEST.w+20,SECRET_CHEST.h+20)){
     SECRET_CHEST.collected=true;
-    P.speed=Math.min(P.speed+2, 12); // 비밀길 보상: 속도 증가
-    outLine('[비밀길] 🗝️ 숨겨진 보상 발견! ⚡ 스피드 +2 획득!','o-ok','outputArea');
-    announce('🗝️ 비밀길 보상 발견! ⚡ 스피드 업!');
+    obtainItem('glock17');
+    outLine('[비밀길] 🗝️ 숨겨진 보상 발견! 🔫 글록17 획득!','o-ok','outputArea');
+
     for(let k=0;k<40;k++){
       const ang=Math.random()*Math.PI*2,sp=2+Math.random()*5;
       PARTICLES.push({x:SECRET_CHEST.x+10,y:SECRET_CHEST.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,
@@ -1070,13 +1061,13 @@ function updateBullets(){
       if(!b.active||b.dead)return;
       if(aabb(r.x-5,r.y-5,10,10,b.x,b.y,b.w,b.h)){
         b.hp=Math.max(0,b.hp-r.dmg); b.knockX=(P.face||1)*5; hit=true;
-        announce('🚀 RPG 직격! 보스 -'+r.dmg+'HP');
+
         if(b.hp<=0)killMultiBoss(b);
       }
     });
     if(BOSS.active&&!BOSS.dead&&aabb(r.x-5,r.y-5,10,10,BOSS.x,BOSS.y,BOSS.w,BOSS.h)){
       BOSS.hp=Math.max(0,BOSS.hp-r.dmg);BOSS.knockX=(P.face||1)*5;hit=true;
-      announce('🚀 RPG 보스 직격! -'+r.dmg+'HP');
+
     }
     DUMMIES.forEach(d=>{
       if(d.dead)return;
@@ -1142,24 +1133,25 @@ function syncWeaponUI(){
   else btn.classList.remove('show');
 }
 
-// ── 보스 시스템 ──
+// ── 보스 순서: EASY(st10) → NORMAL(st15) → HARD(st20) → FINAL(st21+) ──
+// FINAL BOSS: 하드 클리어 후 HARD 보스맵 오른쪽에 자동 등장
 const BOSS={
-  x:6230,y:0,w:40,h:50,baseW:40,baseH:50,
+  x:6230,y:0,w:50,h:60,baseW:50,baseH:60,
   vx:0,vy:0,onGround:false,
-  hp:500,maxHp:500,
-  phase:1,       // 1~5 페이즈
+  hp:2000,maxHp:2000,
+  phase:1,
   dead:false,
-  active:false,  // 플레이어가 보스방 진입 시 활성화
+  active:false,
   face:-1,
   anim:0,
   knockX:0,
   aggroRange:600,
   attackTimer:0,
-  skillTimer:0, // 20초마다 강력한 스킬 발동
+  skillTimer:0,
   skillFlashT:0,
   spawnX:6230,spawnY:330,
-  color:'#aa0000',headColor:'#cc2200',
-  name:'👾 BOSS',
+  color:'#880000',headColor:'#ff2200',
+  name:'💀 FINAL BOSS',
 };
 BOSS.y=BOSS.spawnY-BOSS.h;
 
@@ -1174,16 +1166,16 @@ function createMultiBoss(type){
   const arena=BOSS_ARENAS[type]||{x:P.x+300,y:P.y,name:'???'};
   const spawnX=arena.x, spawnY=arena.y;
   const cfg={
-    easy:  {name:'👿 BOSS EASY',  hp:300, maxHp:300, color:'#008800', headColor:'#00cc00', speed:1.2, reward:'ak47',    w:36,h:46, jumpI:80,  skillCd:900},
-    normal:{name:'😈 BOSS NORMAL',hp:600, maxHp:600, color:'#886600', headColor:'#ccaa00', speed:1.8, reward:'minigun', w:42,h:52, jumpI:60,  skillCd:720},
-    hard:  {name:'💀 BOSS HARD',  hp:1200,maxHp:1200,color:'#660088', headColor:'#aa00cc', speed:2.5, reward:'rpg',     w:50,h:62, jumpI:45,  skillCd:540},
+    easy:  {name:'👿 EASY BOSS',   hp:300,  maxHp:300,  color:'#008800', headColor:'#00cc00', speed:1.2, reward:'glock17', w:36,h:46, jumpI:80,  skillCd:900},
+    normal:{name:'😈 NORMAL BOSS', hp:700,  maxHp:700,  color:'#886600', headColor:'#ccaa00', speed:1.8, reward:'ak47',    w:42,h:52, jumpI:60,  skillCd:720},
+    hard:  {name:'💀 HARD BOSS',   hp:1500, maxHp:1500, color:'#660088', headColor:'#aa00cc', speed:2.5, reward:'minigun', w:50,h:62, jumpI:45,  skillCd:540},
   }[type]||{name:'???',hp:300,maxHp:300,color:'#888',headColor:'#aaa',speed:1,reward:'ak47',w:36,h:46,jumpI:80,skillCd:900};
   // ★ 보스맵(전용 아레나)에 고정 스폰 — 플레이어가 직접 들어와야 활성화됨
   const b={...cfg,type,x:spawnX,y:spawnY-cfg.h,vx:0,vy:0,onGround:false,dead:false,active:false,
     arenaX:spawnX,face:-1,anim:0,knockX:0,attackTimer:0,skillTimer:0,skillFlashT:0,phase:1,spawnX,spawnY};
   MULTI_BOSSES.push(b);
   outLine('[BOSS MAP] '+arena.name+'에 '+b.name+' 등장! 해당 구역으로 이동하면 전투가 시작됩니다.','o-err','outputArea');
-  announce('🗺️ '+arena.name+' 발견! '+b.name+'이 기다리고 있습니다!');
+
   return b;
 }
 function killMultiBoss(b){
@@ -1194,9 +1186,14 @@ function killMultiBoss(b){
       color:['#ffdd44','#ff8800','#cc00ff','#fff'][Math.floor(Math.random()*4)],size:4+Math.random()*5});}
   const rw=b.reward;
   obtainItem(rw);
-  const rwName={ak47:'🔫 AK-47',minigun:'🔫 미니건',rpg:'🚀 RPG'}[rw]||rw;
-  announce('🏆 '+b.name+' 처치! '+rwName+' 획득!');
-  outLine('[REWARD] '+rwName+' 획득! switch_gun '+rw+' 명령어로 전환 가능!','o-ok','outputArea');
+  const rwName={ak47:'🔫 AK-47',minigun:'🔫 미니건',rpg:'🚀 RPG',glock17:'🔫 글록17'}[rw]||rw;
+
+  outLine('[REWARD] '+rwName+' 획득!','o-ok','outputArea');
+  // 하드 보스 처치 시 FINAL BOSS 활성 조건 ON
+  if(b.type==='hard'){
+    hardBossKilled=true;
+
+  }
 }
 function updateMultiBosses(){
   MULTI_BOSSES.forEach(b=>{
@@ -1205,8 +1202,7 @@ function updateMultiBosses(){
     if(!b.active){
       if(Math.abs(P.x-b.arenaX)<400){
         b.active=true;
-        announce('⚠️ '+b.name+' 전투 시작! 처치하면 '+({ak47:'🔫 AK-47',minigun:'🔫 미니건',rpg:'🚀 RPG'}[b.reward])+'을 획득!');
-        outLine('[BOSS MAP] ⚠️ '+b.name+' 활성화!','o-err','outputArea');
+
       }
       return;
     }
@@ -1223,7 +1219,6 @@ function updateMultiBosses(){
     b.skillTimer++;if(b.skillFlashT>0)b.skillFlashT--;
     if(b.skillTimer>b.skillCd){
       b.skillTimer=0;b.skillFlashT=30;
-      announce('⚠️ '+b.name+' 스킬 발동!');
       for(let k=0;k<50;k++){const ang=Math.random()*Math.PI*2,sp=3+Math.random()*5;
         PARTICLES.push({x:b.x+b.w/2,y:b.y+b.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:30,maxLife:30,color:b.color,size:3+Math.random()*3});}
       const dist=Math.hypot((b.x+b.w/2)-(P.x+P.w/2),(b.y+b.h/2)-(P.y+P.h/2));
@@ -1236,53 +1231,12 @@ function updateMultiBosses(){
   });
 }
 
-// ═══════════════════════════════════════════
-// 🏃 어려운 점프맵 (시작 지점 왼쪽 위 숨겨진 루트)
-// ═══════════════════════════════════════════
-const JUMP_MAP_PLATS=[
-  {x:50,  y:190, w:40, h:10, c:'#004400'},
-  {x:100, y:165, w:18, h:8,  c:'#006600'},
-  {x:135, y:140, w:14, h:8,  c:'#008800'},
-  {x:162, y:112, w:16, h:8,  c:'#006600'},
-  {x:185, y:85,  w:12, h:8,  c:'#009900'},
-  {x:205, y:58,  w:12, h:8,  c:'#008800'},
-  {x:225, y:32,  w:14, h:8,  c:'#00aa00'},
-  {x:248, y:50,  w:10, h:8,  c:'#00cc00'},
-  {x:268, y:70,  w:10, h:8,  c:'#009900'},
-  {x:288, y:42,  w:10, h:8,  c:'#00bb00'},
-  {x:310, y:20,  w:10, h:8,  c:'#00ff41'},
-  {x:325, y:5,   w:50, h:10, c:'#00ff88'},
-];
+// ── 점프맵 제거됨 (비밀길에서 글록 획득으로 대체) ──
+const JUMP_MAP_PLATS=[];
 let jumpMapActive=false;
 let jumpMapGoalChecked=false;
-function checkJumpMap(){
-  const start=JUMP_MAP_PLATS[0];
-  if(!jumpMapActive&&P.vy>=0&&aabb(P.x,P.y,P.w,P.h,start.x,start.y,start.w,start.h+5)){
-    jumpMapActive=true;
-    announce('🏃 어려운 점프맵 도전! 꼭대기 초록 발판에 도달하면 🔫 글록17 획득!');
-    outLine('[JUMP MAP] 점프맵 시작! 아주 좁은 발판을 타고 맨 위로 올라가세요!','o-sys','outputArea');
-  }
-  if(jumpMapCleared)return;
-  const goal=JUMP_MAP_PLATS[JUMP_MAP_PLATS.length-1];
-  if(jumpMapActive&&P.vy>=0&&aabb(P.x,P.y,P.w,P.h,goal.x,goal.y,goal.w,goal.h+20)&&!jumpMapGoalChecked){
-    jumpMapGoalChecked=true;jumpMapCleared=true;
-    obtainItem('sword');
-    announce('🎉 점프맵 클리어! ⚔️ 카타나 획득!');
-    outLine('[REWARD] ⚔️ 카타나 획득! sword_attack() 사용 가능!','o-ok','outputArea');
-    for(let k=0;k<60;k++){const ang=Math.random()*Math.PI*2,sp=2+Math.random()*5;
-      PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:60,maxLife:60,
-        color:['#00ff41','#00aaff','#ffff00','#fff'][Math.floor(Math.random()*4)],size:3+Math.random()*4});}
-  }
-}
-const ZONE_LABELS=[
-  {x:100,  y:400, text:'🟢 Zone 1: 정글'},
-  {x:1350, y:180, text:'⚔️ Zone 2: 칼의 신전'},
-  {x:1900, y:140, text:'🌑 Zone 3: 허공의 다리'},
-  {x:3100, y:360, text:'💎 Zone 4: 수정 동굴'},
-  {x:4100, y:260, text:'🔥 Zone 5: 용암 지대'},
-  {x:5500, y:350, text:'👾 BOSS ARENA'},
-  {x:6780, y:155, text:'🏆 CLEAR!'},
-];
+function checkJumpMap(){ /* 점프맵 제거됨 */ }
+const ZONE_LABELS=[];
 
 // ── 칼 파티클 상시 스폰 ──
 let swordGlowT=0;
@@ -1392,15 +1346,18 @@ function checkSword(){
   }
 }
 
-// ── 보스 AI ──
+// ── FINAL BOSS AI (하드 보스 클리어 후 활성화) ──
+let hardBossKilled=false; // 하드 보스 처치 여부
 function updateBoss(){
   if(BOSS.dead)return;
-  // 플레이어가 보스방 근처 오면 활성화
-  if(!BOSS.active&&P.x>5400){
-    BOSS.active=true;
-    announce('👾 BOSS 등장! 5가지 페이즈를 가진 최종 보스!');
+  // FINAL BOSS: 하드 보스 클리어 후, 플레이어가 근처에 오면 활성화
+  if(!BOSS.active){
+    if(hardBossKilled&&P.x>5400){
+      BOSS.active=true;
+
+    }
+    return;
   }
-  if(!BOSS.active)return;
   // 페이즈 결정 (HP비율로)
   const hpRatio=BOSS.hp/BOSS.maxHp;
   if(hpRatio>0.8)BOSS.phase=1;
@@ -1410,7 +1367,7 @@ function updateBoss(){
   else BOSS.phase=5;
 
   // 페이즈별 색상
-  const phaseColors=[null,'#aa0000','#cc2200','#ee4400','#ff6600','#ff8800'];
+  const phaseColors=[null,'#880000','#aa0000','#cc2200','#ff4400','#ff6600'];
   BOSS.color=phaseColors[BOSS.phase];
 
   // 이동 (플레이어 추적, 페이즈 높을수록 빠름)
@@ -1448,8 +1405,6 @@ function updateBoss(){
   if(BOSS.skillTimer>1200){ // 약 20초 (60fps 기준)
     BOSS.skillTimer=0;
     BOSS.skillFlashT=30;
-    announce('⚠️ BOSS 스킬: 충격파 발동! 거리를 벌리세요!');
-    outLine('[BOSS] ⚠️ 충격파 스킬 발동!','o-err','outputArea');
     const skillDmg=15+BOSS.phase*5;
     const skillRange=160;
     // 보스 주변 원형 충격파 — 범위 내 플레이어에게 큰 데미지 + 강한 넉백
@@ -1471,7 +1426,7 @@ function updateBoss(){
   // 보스가 플레이어에게 근접 시 데미지 (god 모드 아니면)
   if(!P.god&&aabb(P.x,P.y,P.w,P.h,BOSS.x,BOSS.y,BOSS.w,BOSS.h)){
     outLine('[BOSS] 보스에게 공격당했다! god(True) 또는 sword_attack()으로 싸워!','o-err','outputArea');
-    announce('💀 보스에게 맞았다! (god모드 없이는 위험!)');
+
     playerDeaths++;
     resetP();
   }
@@ -1479,12 +1434,12 @@ function updateBoss(){
   // 보스 사망 처리
   if(BOSS.hp<=0&&!BOSS.dead){
     BOSS.dead=true;BOSS.active=false;
-    announce('🎉 보스를 처치했습니다! 🔫 AK-47 획득! 오른쪽 계단으로 탈출하세요!');
-    outLine('[BOSS] 🎉 보스 처치! 🔫 AK-47 획득!','o-ok','outputArea');
+
+    outLine('[FINAL BOSS] 🎉 FINAL BOSS 처치! 게임 클리어!','o-ok','outputArea');
     obtainItem('ak47');
     clearPlatActive=true;
     outLine('[CLEAR] 🏆 클리어 발판이 열렸습니다! 맵 오른쪽 끝으로 이동하세요!','o-ok','outputArea');
-    announce('🏆 클리어 발판이 열렸습니다! 오른쪽 끝으로 이동하세요!');
+
     for(let k=0;k<80;k++){
       const ang=Math.random()*Math.PI*2,sp=3+Math.random()*6;
       PARTICLES.push({x:BOSS.x+BOSS.w/2,y:BOSS.y+BOSS.h/2,
@@ -1498,7 +1453,7 @@ function updateBoss(){
 
 // ── 구역(스테이지) 진입 체크 ── (스테이지 1~20, 10=쉬움 / 15=보통 / 20=어려움 보스맵)
 let lastZone=-1;
-const STAGE_BOSS_SPAWNED={10:false,15:false,20:false};
+const STAGE_BOSS_SPAWNED={6:false,10:false,15:false,20:false};
 function currentStage(){
   let stage=1;
   for(let i=1;i<STAGE_X.length;i++){ if(P.x>=STAGE_X[i]) stage=i+1; }
@@ -1509,12 +1464,8 @@ function checkZone(){
   if(stage!==lastZone){
     lastZone=stage;
     stageCount=stage;
-    const names=['🟢 정글','⚔️ 칼의 신전','🌑 허공의 다리','💎 수정 동굴','🔥 용암 지대','👾 보스 아레나',
-      '🏃 스테이지 7','🌉 스테이지 8','🌉 스테이지 9','🟢 EASY 보스맵 (난이도: 쉬움)',
-      '🌀 스테이지 11','🌀 스테이지 12','🌀 스테이지 13','🌀 스테이지 14','🟡 NORMAL 보스맵 (난이도: 보통)',
-      '🔥 스테이지 16','🔥 스테이지 17','🔥 스테이지 18','🔥 스테이지 19','🔴 HARD 보스맵 (난이도: 어려움)'];
-    if(names[stage-1])outLine('[STAGE '+stage+'/20] 📍 '+names[stage-1]+' 진입','o-sys','outputArea');
-    // ★ 10=쉬움 / 15=보통 / 20=어려움 — 각 스테이지에 도달하면 해당 전용 보스맵에 보스 소환
+    // 보스맵 진입 시만 보스 소환
+    if(stage===6&&!STAGE_BOSS_SPAWNED[6]){STAGE_BOSS_SPAWNED[6]=true;} // 메인보스는 x>5400 자동활성
     if(stage===10&&!STAGE_BOSS_SPAWNED[10]){STAGE_BOSS_SPAWNED[10]=true;createMultiBoss('easy');}
     if(stage===15&&!STAGE_BOSS_SPAWNED[15]){STAGE_BOSS_SPAWNED[15]=true;createMultiBoss('normal');}
     if(stage===20&&!STAGE_BOSS_SPAWNED[20]){STAGE_BOSS_SPAWNED[20]=true;createMultiBoss('hard');}
@@ -1709,7 +1660,7 @@ function pyBridge(name,argv){
         if(!b.dead&&b.active&&b.x+b.w>reach.lx&&b.x<reach.rx&&aabb(reach.lx,P.y,reach.rx-reach.lx,P.h,b.x,b.y,b.w,b.h)){
           b.hp=Math.max(0,b.hp-dmg);b.knockX=(P.face||1)*5;hit=true;
           for(let k=0;k<16;k++){const ang=Math.random()*Math.PI*2,sp=2+Math.random()*4;PARTICLES.push({x:b.x+b.w/2,y:b.y+b.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-1,life:25,maxLife:25,color:'#ff4400',size:3+Math.random()*3});}
-          announce('⚔️ '+b.name+'에게 '+dmg+' 데미지!');
+
           if(b.hp<=0)killMultiBoss(b);
         }
       });
@@ -1719,7 +1670,7 @@ function pyBridge(name,argv){
         BOSS.knockX=(P.face||1)*4;
         hit=true;
         for(let k=0;k<16;k++){const ang=Math.random()*Math.PI*2,sp=2+Math.random()*4;PARTICLES.push({x:BOSS.x+BOSS.w/2,y:BOSS.y+BOSS.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-1,life:25,maxLife:25,color:'#ff4400',size:3+Math.random()*3});}
-        announce('⚔️ 보스에게 '+dmg+' 데미지! (HP: '+BOSS.hp+'/'+BOSS.maxHp+')');
+
       }
       // 더미에 데미지
       DUMMIES.forEach(d=>{ if(!d.dead&&aabb(reach.lx,P.y,reach.rx-reach.lx,P.h,d.x,d.y,d.w,d.h)){damageDummy(d.name,dmg);hit=true;} });
@@ -1732,7 +1683,7 @@ function pyBridge(name,argv){
       if(BOSS.active&&!BOSS.dead){
         BOSS.hp=Math.max(0,BOSS.hp-dmg);
         BOSS.knockX=(P.face||1)*6;
-        announce('⚔️ 칼 던지기! 보스에게 '+dmg+' 대미지!');
+
         for(let k=0;k<25;k++){const ang=Math.random()*Math.PI*2,sp=3+Math.random()*5;PARTICLES.push({x:BOSS.x+BOSS.w/2,y:BOSS.y+BOSS.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:35,maxLife:35,color:['#ffdd44','#ffffff','#ff8800'][Math.floor(Math.random()*3)],size:3+Math.random()*4});}
       } else {
         DUMMIES.forEach(d=>{ if(!d.dead){damageDummy(d.name,dmg);} });
@@ -2327,7 +2278,7 @@ function drawGame(){
     ctx.fillStyle=bgrad;ctx.fillRect(W/2-120,8,240*bhr,12);
     ctx.strokeStyle='#ff0000';ctx.lineWidth=1;ctx.strokeRect(W/2-120,8,240,12);
     ctx.fillStyle='#ffaa00';ctx.font='bold 10px Courier New';ctx.textAlign='center';
-    ctx.fillText('👾 BOSS  HP: '+BOSS.hp+'/'+BOSS.maxHp+'  Phase '+BOSS.phase,W/2,19);
+    ctx.fillText('💀 FINAL BOSS  HP: '+BOSS.hp+'/'+BOSS.maxHp+'  Phase '+BOSS.phase,W/2,19);
     ctx.restore();
     // 보스 본체
     ctx.save();
@@ -2339,7 +2290,7 @@ function drawGame(){
     }
     drawChar(BOSS.x,BOSS.y,BOSS.w,BOSS.h,BOSS.face,BOSS.anim,BOSS.color,BOSS.headColor,BOSS.onGround,1);
     ctx.fillStyle='#ff4400';ctx.font='bold 11px Courier New';ctx.textAlign='center';
-    ctx.fillText('👾 Phase '+BOSS.phase,bx+BOSS.w/2,by2-10);
+    ctx.fillText('💀 FINAL Phase '+BOSS.phase,bx+BOSS.w/2,by2-10);
     if(BOSS.skillFlashT>0){
       ctx.strokeStyle='rgba(255,40,0,'+(BOSS.skillFlashT/30)+')';ctx.lineWidth=4;
       ctx.beginPath();ctx.arc(bx+BOSS.w/2,by2+BOSS.h/2,160*(1-BOSS.skillFlashT/30),0,Math.PI*2);ctx.stroke();
@@ -2455,7 +2406,7 @@ function checkClearPlat(){
     equipItem('minigun');
     // 연사 모드 자동 ON
     autoFireHeld=true;
-    announce('🎉 ALL CLEAR! 모든 무기 획득 + 연사 모드 ON!');
+
     outLine('[CLEAR] 🏆 게임 클리어! 모든 무기(카타나/글록/AK-47/미니건/RPG) 획득! 연사 모드 ON!','o-ok','outputArea');
     for(let k=0;k<100;k++){
       const ang=Math.random()*Math.PI*2,sp=3+Math.random()*7;
@@ -3375,27 +3326,11 @@ const SYS=`당신은 친절한 Python 전문 튜터 AI입니다.
 - 코드는 \`\`\`python ... \`\`\` 형식으로 작성하세요
 - 친근하고 격려하는 말투를 사용하세요`;
 
-// API 키 관리
-let _apiKey = '';
-function saveApiKey(){
-  const v=document.getElementById('apiKeyInput').value.trim();
-  _apiKey=v;
-  const st=document.getElementById('apiKeyStatus');
-  if(v.startsWith('sk-ant-')||v.startsWith('sk-')){
-    st.textContent='✅ 저장됨';st.style.color='var(--green)';
-  } else if(v.length>0){
-    st.textContent='⚠️ 형식 확인';st.style.color='var(--yellow)';
-  } else {
-    st.textContent='';
-  }
-}
-function toggleApiKeyVis(){
-  const inp=document.getElementById('apiKeyInput');
-  const btn=document.getElementById('apiKeyEyeBtn');
-  if(inp.type==='password'){inp.type='text';btn.textContent='숨기기';}
-  else{inp.type='password';btn.textContent='보기';}
-}
-function getApiKey(){return _apiKey||'';}
+// API 키 관리 (더미 - 내장 API 사용)
+let _apiKey = 'builtin';
+function saveApiKey(){}
+function toggleApiKeyVis(){}
+function getApiKey(){return 'builtin';}
 
 document.getElementById('aiInput').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi();}
@@ -3410,11 +3345,6 @@ function addAiMsg(text,role){
 async function sendAi(){
   const inp=document.getElementById('aiInput');
   const text=inp.value.trim();if(!text)return;
-  const key=getApiKey();
-  if(!key){
-    addAiMsg('🔑 API 키를 먼저 입력해주세요!\n상단의 API 키 입력칸에 Anthropic API 키(sk-ant-...)를 붙여넣으면 AI 기능이 활성화됩니다.\n\nhttps://console.anthropic.com 에서 발급받을 수 있어요!','bot');
-    return;
-  }
   inp.value='';
   addAiMsg(text,'user');
   aiHist.push({role:'user',content:text});
@@ -3424,7 +3354,6 @@ async function sendAi(){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'x-api-key':key,
         'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true'
       },
@@ -3843,7 +3772,7 @@ setTimeout(()=>{
       size:2+Math.random()*4
     });
   }
-  announce('🎮 Python Matrix Lab 시작! 코드를 실행하면 캐릭터가 움직여요!');
+
 }, 800);
 </script>
 </body>
