@@ -467,6 +467,7 @@ canvas{display:block;}
   <button class="tab-btn"        id="t-ai"        onclick="sw('ai')">AI 질문</button>
   <button class="tab-btn"        id="t-inspector" onclick="sw('inspector')">명령어</button>
   <button class="tab-btn" id="musicToggle" onclick="toggleMusic()" title="배경음 ON/OFF">음악</button>
+  <button class="tab-btn" id="invToggle" onclick="toggleInventoryUI()" title="인벤토리 열기/닫기">인벤토리</button>
   <div class="spacer"></div>
   <div class="topnote">WASD / 화살표 이동  |  스페이스 점프  |  R 리셋</div>
 </div>
@@ -475,10 +476,20 @@ canvas{display:block;}
   <!-- GAME -->
   <div id="gamePanel">
     <div id="bubble"></div>
+    <div id="invModal" style="display:none;position:absolute;inset:0;z-index:50;background:rgba(0,0,0,0.78);align-items:center;justify-content:center;">
+      <div style="background:#061006;border:1px solid var(--green);border-radius:6px;width:min(360px,86%);max-height:78%;display:flex;flex-direction:column;box-shadow:0 0 24px rgba(0,255,65,0.25);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--gdim);">
+          <b style="color:var(--green);font-size:13px;">🎒 인벤토리 (장착은 1개씩만)</b>
+          <button class="btn danger" onclick="toggleInventoryUI()">✕ 닫기</button>
+        </div>
+        <div id="invList" style="overflow-y:auto;padding:10px 12px;flex:1;"></div>
+      </div>
+    </div>
     <div id="keysHint">
       <b>A / 왼쪽</b> 이동<br>
       <b>D / 오른쪽</b> 이동<br>
       <b>스페이스 / W / 위</b> 점프<br>
+      <b>Z / X</b> 총 연사 (꾹 누르기)<br>
       <b>R</b> 리셋<br>
       <b>print</b> 실행시 캐릭터가 말함
     </div>
@@ -719,6 +730,16 @@ const PLATS=[
   {x:590,y:220,w:180,h:16,c:'#1a5a2a'},
 
   // ════════════════════════════════════
+  // 🗝️ 비밀길 (시작 구역 위쪽, 숨겨진 보너스 루트)
+  // 발판이 안 밟히던 버그 수정 + 비밀길 끝에 보상 추가
+  // ════════════════════════════════════
+  {x:40,y:330,w:40,h:10,c:'#225522',secret:true},
+  {x:-10,y:280,w:40,h:10,c:'#225522',secret:true},
+  {x:50,y:230,w:40,h:10,c:'#225522',secret:true},
+  {x:0,y:180,w:40,h:10,c:'#225522',secret:true},
+  {x:60,y:130,w:90,h:14,c:'#114411',secret:true},   // 🗝️ 비밀길 끝 — 보상 발판
+
+  // ════════════════════════════════════
   // ⚔️ 구역 2: 칼의 신전 (x:1400~)
   // ════════════════════════════════════
   // 입구 다리
@@ -811,26 +832,212 @@ const PLATS=[
   {x:6460,y:300,w:70,h:12,c:'#440044'},
   {x:6550,y:260,w:70,h:12,c:'#550055'},
   {x:6640,y:220,w:70,h:12,c:'#660066'},
-  {x:6730,y:180,w:200,h:20,c:'#004466'},       // 🏆 클리어 지점
+  {x:6730,y:180,w:200,h:20,c:'#004466'},       // 🏆 클리어 지점 (구역6 끝 / 스테이지7 시작)
 ];
+
+// ═══════════════════════════════════════════
+// 🗺️ 스테이지 7~20 확장 + 보스맵(쉬움/보통/어려움) 전용 아레나
+// 요청사항: 스테이지 20까지 확장, 10=쉬움 / 15=보통 / 20=어려움 보스가
+// 각각 "전용 보스맵"에서 등장 (플레이어가 직접 입장해야 보스가 활성화됨)
+// ═══════════════════════════════════════════
+const STAGE_X=[0,550,1350,2600,3900,5400,6730]; // 스테이지 1~7 시작 x (기존 구역)
+function pushBridge(startX,startY,count,dx,dyAmp,w,h,color){
+  let x=startX,y=startY;
+  for(let i=0;i<count;i++){
+    PLATS.push({x,y,w,h,c:color});
+    x+=dx;
+    y+= (i%2===0? -dyAmp : dyAmp);
+    y=Math.max(120,Math.min(380,y));
+  }
+  return x;
+}
+function pushBossArena(startX,baseY,color,floorColor,spawnColor){
+  // 작은 전용 보스 방 (바닥 + 전투용 발판 몇 개 + 보스 스폰 발판)
+  PLATS.push({x:startX,y:baseY,w:560,h:20,c:floorColor});                    // 방 바닥
+  PLATS.push({x:startX+60,y:baseY-90,w:80,h:12,c:color});
+  PLATS.push({x:startX+220,y:baseY-130,w:80,h:12,c:color});
+  PLATS.push({x:startX+380,y:baseY-90,w:80,h:12,c:color});
+  PLATS.push({x:startX+460,y:baseY-150,w:110,h:14,c:spawnColor});            // 보스 스폰 발판
+  return startX+460; // 보스 스폰 x 기준점
+}
+
+// 스테이지7→8→9 (정글식 윈딩 다리, 어려움 점진 상승)
+let _sx=6930;
+_sx=pushBridge(_sx,200,4,150,30,55,12,'#003355'); STAGE_X.push(_sx);   // 스테이지 8
+_sx=pushBridge(_sx,210,4,150,28,55,12,'#113355'); STAGE_X.push(_sx);   // 스테이지 9
+
+// ── 스테이지10: 🟢 EASY 보스맵 ──
+const EASY_ARENA_X=_sx+150;
+const EASY_BOSS_SPAWN_X=pushBossArena(EASY_ARENA_X,300,'#114411','#0a2a0a','#1a6a1a');
+STAGE_X.push(EASY_ARENA_X);
+_sx=EASY_ARENA_X+620;
+PLATS.push({x:_sx,y:260,w:120,h:16,c:'#225522'}); // 탈출 발판
+
+// 스테이지11~14 (수정/용암 분위기 윈딩 다리)
+_sx=pushBridge(_sx+150,250,4,150,32,55,12,'#552255'); STAGE_X.push(_sx); // 11
+_sx=pushBridge(_sx,230,4,150,30,55,12,'#663366'); STAGE_X.push(_sx);     // 12
+_sx=pushBridge(_sx,240,4,150,34,55,12,'#774477'); STAGE_X.push(_sx);     // 13
+_sx=pushBridge(_sx,220,4,150,30,55,12,'#885588'); STAGE_X.push(_sx);     // 14
+
+// ── 스테이지15: 🟡 NORMAL 보스맵 ──
+const NORMAL_ARENA_X=_sx+150;
+const NORMAL_BOSS_SPAWN_X=pushBossArena(NORMAL_ARENA_X,300,'#776600','#332b00','#aa9900');
+STAGE_X.push(NORMAL_ARENA_X);
+_sx=NORMAL_ARENA_X+620;
+PLATS.push({x:_sx,y:260,w:120,h:16,c:'#998800'});
+
+// 스테이지16~19 (용암/어둠 윈딩 다리, 점점 험해짐)
+_sx=pushBridge(_sx+150,260,4,150,36,50,12,'#661a00'); STAGE_X.push(_sx); // 16
+_sx=pushBridge(_sx,240,4,150,34,50,12,'#771f00'); STAGE_X.push(_sx);     // 17
+_sx=pushBridge(_sx,250,4,150,38,50,12,'#882400'); STAGE_X.push(_sx);     // 18
+_sx=pushBridge(_sx,230,4,150,34,50,12,'#992900'); STAGE_X.push(_sx);     // 19
+
+// ── 스테이지20: 🔴 HARD 보스맵 ──
+const HARD_ARENA_X=_sx+150;
+const HARD_BOSS_SPAWN_X=pushBossArena(HARD_ARENA_X,300,'#440000','#220000','#aa0000');
+STAGE_X.push(HARD_ARENA_X);
+PLATS.push({x:HARD_ARENA_X+620,y:180,w:240,h:20,c:'#004466'}); // 🏁 최종 클리어 지점
+
+const BOSS_ARENAS={
+  easy:  {x:EASY_BOSS_SPAWN_X,   y:300, name:'🟢 EASY 보스맵'},
+  normal:{x:NORMAL_BOSS_SPAWN_X, y:300, name:'🟡 NORMAL 보스맵'},
+  hard:  {x:HARD_BOSS_SPAWN_X,   y:300, name:'🔴 HARD 보스맵'},
+};
 
 const GRAV=0.45;
 let camX=0,camY=0;
 
-// ── 칼 아이템 ──
+// ── 카타나 아이템 (더 길고 얇은 일본도) ──
 const SWORD={x:1390,y:125,w:22,h:8,collected:false,anim:0};
 let playerHasSword=false;
 let swordSwingT=0;
 
-// ── 총 아이템 (글록17, 명령어로만 획득) ──
+// ── 🗝️ 비밀길 보상 상자 (시작 구역 위쪽 숨겨진 발판 끝) ──
+const SECRET_CHEST={x:95,y:120,w:20,h:14,collected:false};
+function checkSecretChest(){
+  if(SECRET_CHEST.collected)return;
+  if(Math.random()<0.3){
+    PARTICLES.push({x:SECRET_CHEST.x+Math.random()*20,y:SECRET_CHEST.y-Math.random()*8,
+      vx:(Math.random()-0.5)*0.6,vy:-0.4-Math.random()*0.6,
+      life:28,maxLife:28,color:'#33ff99',size:2+Math.random()*2});
+  }
+  if(aabb(P.x,P.y,P.w,P.h,SECRET_CHEST.x-10,SECRET_CHEST.y-10,SECRET_CHEST.w+20,SECRET_CHEST.h+20)){
+    SECRET_CHEST.collected=true;
+    P.speed=Math.min(P.speed+2, 12); // 비밀길 보상: 속도 증가
+    outLine('[비밀길] 🗝️ 숨겨진 보상 발견! ⚡ 스피드 +2 획득!','o-ok','outputArea');
+    announce('🗝️ 비밀길 보상 발견! ⚡ 스피드 업!');
+    for(let k=0;k<40;k++){
+      const ang=Math.random()*Math.PI*2,sp=2+Math.random()*5;
+      PARTICLES.push({x:SECRET_CHEST.x+10,y:SECRET_CHEST.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,
+        life:50,maxLife:50,color:['#33ff99','#00ffcc','#ffffff'][Math.floor(Math.random()*3)],size:3+Math.random()*3});
+    }
+  }
+}
+
+// ── 총기 시스템 ──
+// gun 종류: 'glock17'(기본), 'ak47', 'minigun', 'rpg'
+const GUNS_OWNED={glock17:false, ak47:false, minigun:false, rpg:false};
+let currentGun='glock17'; // 현재 선택된 총
+let minigunHeat=0;        // 미니건 과열 (0~100)
+let rpgReload=0;          // RPG 재장전 타이머
+const RPG_ROCKETS=[];     // RPG 로켓 목록
+
+// ── 총 공통 상태 ──
 const GUN={collected:false,aimAngle:0};
 let playerHasGun=false;
-const GUN_RANGE=520;
+const GUN_RANGE=600;
 const BULLETS=[];
+// 점프맵 클리어 여부
+let jumpMapCleared=false;
 
-// 근처 타겟(보스/더미) 중 가장 가까운 대상을 찾는다
+// ── 클리어 발판 시스템 ──
+// 보스 클리어 시 나타나는 발판 — 밟으면 모든 무기 동시 획득 + 연사 모드 ON
+let clearPlatActive=false;
+const CLEAR_PLAT={x:6780, y:155, w:200, h:20};
+let clearGameStarted=false;
+
+// ── 연사(오토파이어) 시스템 ──
+let autoFireHeld=false;
+let autoFireTimer=0;
+const AUTO_FIRE_INTERVAL={glock17:18, ak47:10, minigun:5, rpg:60};
+
+// ═══════════════════════════════════════════
+// 🎒 인벤토리 / 장착 시스템
+// - 아이템은 한 번 획득하면 죽어도 인벤토리에 그대로 남음
+// - 동시에 "장착"할 수 있는 무기는 1개 뿐 (인벤토리 창에서 장착/해제)
+// - 죽으면 장착 중인 무기만 "장착 해제"되어 인벤토리로 돌아감 (아이템 자체는 안 사라짐)
+// ═══════════════════════════════════════════
+const ITEM_DB={
+  sword:  {label:'⚔️ 카타나',  type:'sword', icon:'⚔️'},
+  glock17:{label:'🔫 글록17',  type:'gun',   icon:'🔫'},
+  ak47:   {label:'🔫 AK-47',   type:'gun',   icon:'🔫'},
+  minigun:{label:'🔫 미니건',  type:'gun',   icon:'🔫'},
+  rpg:    {label:'🚀 RPG',     type:'gun',   icon:'🚀'},
+};
+let EQUIPPED=null; // null | 'sword' | 'glock17' | 'ak47' | 'minigun' | 'rpg'  — 동시에 1개만!
+
+function isOwned(id){
+  const def=ITEM_DB[id]; if(!def)return false;
+  return def.type==='sword' ? playerHasSword : !!GUNS_OWNED[id];
+}
+function equipItem(id){
+  const def=ITEM_DB[id];
+  if(!def||!isOwned(id)){cmdLog&&cmdLog('장착 실패: 보유하지 않은 아이템입니다 ('+id+')','cl-err');return false;}
+  EQUIPPED=id;
+  if(def.type==='gun'){currentGun=id;playerHasGun=true;}
+  syncWeaponUI();renderInventory();
+  return true;
+}
+function unequipItem(silent){
+  EQUIPPED=null;
+  syncWeaponUI();renderInventory();
+  return true;
+}
+// 아이템 획득(인벤토리 추가). 장착된 게 없으면 자동으로 장착, 있으면 인벤토리에만 보관.
+function obtainItem(id){
+  const def=ITEM_DB[id]; if(!def)return false;
+  if(def.type==='sword'){playerHasSword=true;SWORD.collected=true;P.bodyColor='#cc8800';}
+  else {GUNS_OWNED[id]=true;GUN.collected=true;}
+  if(!EQUIPPED) equipItem(id);
+  syncWeaponUI();renderInventory();
+  return true;
+}
+function toggleInventoryUI(){
+  const m=document.getElementById('invModal');
+  if(!m)return;
+  const show=m.style.display!=='flex';
+  m.style.display=show?'flex':'none';
+  if(show)renderInventory();
+}
+function renderInventory(){
+  const list=document.getElementById('invList');
+  if(!list)return;
+  const owned=Object.keys(ITEM_DB).filter(isOwned);
+  if(owned.length===0){
+    list.innerHTML='<div style="color:var(--gdim);font-size:12px;padding:10px;">보유한 아이템이 없습니다. 맵을 돌아다니며 칼/총을 획득하거나 give 명령어를 사용해보세요.</div>';
+    return;
+  }
+  list.innerHTML=owned.map(id=>{
+    const def=ITEM_DB[id];
+    const eq=EQUIPPED===id;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid ${eq?'var(--green)':'var(--gdim)'};border-radius:4px;margin-bottom:6px;background:${eq?'rgba(0,255,65,0.08)':'rgba(255,255,255,0.02)'};">
+      <span style="font-size:13px;">${def.icon} ${def.label}${eq?' <b style="color:var(--green);">[장착중]</b>':''}</span>
+      ${eq
+        ? `<button class="btn danger" onclick="unequipItem()">장착 해제</button>`
+        : `<button class="btn run" onclick="equipItem('${id}')">장착하기</button>`}
+    </div>`;
+  }).join('');
+}
+
+// 근처 타겟(보스/보스들/더미) 중 가장 가까운 대상을 찾는다
 function findNearestTarget(){
   let best=null,bestD=GUN_RANGE;
+  // 멀티보스
+  MULTI_BOSSES.forEach(b=>{
+    if(!b.active||b.dead)return;
+    const d=Math.hypot((b.x+b.w/2)-(P.x+P.w/2),(b.y+b.h/2)-(P.y+P.h/2));
+    if(d<bestD){bestD=d;best=b;}
+  });
   if(BOSS.active&&!BOSS.dead){
     const d=Math.hypot((BOSS.x+BOSS.w/2)-(P.x+P.w/2),(BOSS.y+BOSS.h/2)-(P.y+P.h/2));
     if(d<bestD){bestD=d;best=BOSS;}
@@ -843,42 +1050,95 @@ function findNearestTarget(){
   return best;
 }
 
-// 총알 발사 (즉시 명중하는 트레이서 + 짧은 비주얼 비행)
+// 총알 발사
 function spawnBullet(x,y,target){
-  BULLETS.push({x,y,tx:target.x+target.w/2,ty:target.y+target.h/2,life:10,maxLife:10});
+  BULLETS.push({x,y,tx:target.x+target.w/2,ty:target.y+target.h/2,life:12,maxLife:12});
   for(let k=0;k<5;k++){PARTICLES.push({x,y,vx:(Math.random()-0.5)*1.5,vy:(Math.random()-0.5)*1.5,life:8,maxLife:8,color:'#ffee88',size:2});}
 }
 function updateBullets(){
   for(let i=BULLETS.length-1;i>=0;i--){const b=BULLETS[i];b.life--;if(b.life<=0)BULLETS.splice(i,1);}
+  // RPG 로켓 이동
+  for(let i=RPG_ROCKETS.length-1;i>=0;i--){
+    const r=RPG_ROCKETS[i];
+    r.x+=r.vx; r.y+=r.vy;
+    r.life--;
+    // 연기
+    PARTICLES.push({x:r.x,y:r.y,vx:(Math.random()-0.5)*0.5,vy:-0.3-Math.random(),life:20,maxLife:20,color:'#888',size:4+Math.random()*3});
+    // 충돌 체크
+    let hit=false;
+    MULTI_BOSSES.forEach(b=>{
+      if(!b.active||b.dead)return;
+      if(aabb(r.x-5,r.y-5,10,10,b.x,b.y,b.w,b.h)){
+        b.hp=Math.max(0,b.hp-r.dmg); b.knockX=(P.face||1)*5; hit=true;
+        announce('🚀 RPG 직격! 보스 -'+r.dmg+'HP');
+        if(b.hp<=0)killMultiBoss(b);
+      }
+    });
+    if(BOSS.active&&!BOSS.dead&&aabb(r.x-5,r.y-5,10,10,BOSS.x,BOSS.y,BOSS.w,BOSS.h)){
+      BOSS.hp=Math.max(0,BOSS.hp-r.dmg);BOSS.knockX=(P.face||1)*5;hit=true;
+      announce('🚀 RPG 보스 직격! -'+r.dmg+'HP');
+    }
+    DUMMIES.forEach(d=>{
+      if(d.dead)return;
+      if(aabb(r.x-5,r.y-5,10,10,d.x,d.y,d.w,d.h)){damageDummy(d.name,r.dmg);hit=true;}
+    });
+    if(hit||r.life<=0){
+      // 폭발
+      for(let k=0;k<50;k++){const ang=Math.random()*Math.PI*2,sp=3+Math.random()*6;
+        PARTICLES.push({x:r.x,y:r.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:40,maxLife:40,color:['#ff8800','#ff4400','#ffff00','#fff'][Math.floor(Math.random()*4)],size:4+Math.random()*5});}
+      RPG_ROCKETS.splice(i,1);
+    }
+  }
 }
 function drawBullets(){
-  ctx.save();ctx.strokeStyle='#ffee88';ctx.lineWidth=2;
+  ctx.save();ctx.lineWidth=2;
   BULLETS.forEach(b=>{
     const a=b.life/b.maxLife;
-    ctx.globalAlpha=a;
+    ctx.globalAlpha=a;ctx.strokeStyle='#ffee88';
     ctx.beginPath();ctx.moveTo(b.x-camX,b.y-camY);ctx.lineTo(b.tx-camX,b.ty-camY);ctx.stroke();
+  });
+  // RPG 로켓 그리기
+  ctx.globalAlpha=1;
+  RPG_ROCKETS.forEach(r=>{
+    ctx.save();ctx.translate(r.x-camX,r.y-camY);ctx.rotate(Math.atan2(r.vy,r.vx));
+    ctx.fillStyle='#ff6600';ctx.fillRect(-10,-3,20,6);
+    ctx.fillStyle='#ffaa00';ctx.fillRect(8,-4,5,8);
+    ctx.restore();
   });
   ctx.restore();ctx.globalAlpha=1;
 }
-// 총을 들고 있으면 매 프레임 가까운 적을 향해 총구가 자동으로 돌아간다
+// 현재 총에 따라 총구 자동 조준
 function updateGunAim(){
-  if(!playerHasGun)return;
+  if(EQUIPPED!=='glock17'&&EQUIPPED!=='ak47'&&EQUIPPED!=='minigun'&&EQUIPPED!=='rpg')return;
   const target=findNearestTarget();
   if(target){
     GUN.aimAngle=Math.atan2((target.y+target.h/2)-(P.y+P.h*0.4),(target.x+target.w/2)-(P.x+P.w/2));
   } else {
     GUN.aimAngle=(P.face>0?0:Math.PI);
   }
+  // 미니건 과열 자연냉각
+  if(minigunHeat>0)minigunHeat=Math.max(0,minigunHeat-0.5);
+  // RPG 재장전
+  if(rpgReload>0)rpgReload--;
 }
+function hasAnyGun(){return EQUIPPED==='glock17'||EQUIPPED==='ak47'||EQUIPPED==='minigun'||EQUIPPED==='rpg';}
+
 // 모바일 공격 버튼: 총이 있으면 총을, 없으면 칼을 자동으로 사용
 function doAutoAttack(){
-  if(playerHasGun){const r=pyBridge('gun_shoot',[25]);outLine('[ATTACK] '+r,'o-ok','outputArea');}
-  else if(playerHasSword){const r=pyBridge('sword_attack',[60]);outLine('[ATTACK] '+r,'o-ok','outputArea');}
+  if(hasAnyGun()){const r=pyBridge('gun_shoot',[getCurrentGunDmg()]);if(r)outLine('[ATTACK] '+r,'o-ok','outputArea');}
+  else if(EQUIPPED==='sword'){const r=pyBridge('sword_attack',[80]);outLine('[ATTACK] '+r,'o-ok','outputArea');}
+  else outLine('[ATTACK] 장착된 무기가 없습니다! 인벤토리에서 무기를 장착하세요.','o-err','outputArea');
+}
+function getCurrentGunDmg(){
+  if(currentGun==='rpg')return 200;
+  if(currentGun==='minigun')return 15;
+  if(currentGun==='ak47')return 35;
+  return 25;
 }
 function syncWeaponUI(){
   const btn=document.getElementById('dpad-attack');
   if(!btn)return;
-  if(playerHasSword||playerHasGun)btn.classList.add('show');
+  if(EQUIPPED==='sword'||hasAnyGun())btn.classList.add('show');
   else btn.classList.remove('show');
 }
 
@@ -903,7 +1163,117 @@ const BOSS={
 };
 BOSS.y=BOSS.spawnY-BOSS.h;
 
-// ── 구역 레이블 ──
+// ═══════════════════════════════════════════
+// 🎯 5스테이지마다 등장하는 멀티 보스 (쉬움/보통/어려움)
+// ═══════════════════════════════════════════
+let stageCount=0;
+let multiBossSpawned=false;
+const MULTI_BOSSES=[];
+
+function createMultiBoss(type){
+  const arena=BOSS_ARENAS[type]||{x:P.x+300,y:P.y,name:'???'};
+  const spawnX=arena.x, spawnY=arena.y;
+  const cfg={
+    easy:  {name:'👿 BOSS EASY',  hp:300, maxHp:300, color:'#008800', headColor:'#00cc00', speed:1.2, reward:'ak47',    w:36,h:46, jumpI:80,  skillCd:900},
+    normal:{name:'😈 BOSS NORMAL',hp:600, maxHp:600, color:'#886600', headColor:'#ccaa00', speed:1.8, reward:'minigun', w:42,h:52, jumpI:60,  skillCd:720},
+    hard:  {name:'💀 BOSS HARD',  hp:1200,maxHp:1200,color:'#660088', headColor:'#aa00cc', speed:2.5, reward:'rpg',     w:50,h:62, jumpI:45,  skillCd:540},
+  }[type]||{name:'???',hp:300,maxHp:300,color:'#888',headColor:'#aaa',speed:1,reward:'ak47',w:36,h:46,jumpI:80,skillCd:900};
+  // ★ 보스맵(전용 아레나)에 고정 스폰 — 플레이어가 직접 들어와야 활성화됨
+  const b={...cfg,type,x:spawnX,y:spawnY-cfg.h,vx:0,vy:0,onGround:false,dead:false,active:false,
+    arenaX:spawnX,face:-1,anim:0,knockX:0,attackTimer:0,skillTimer:0,skillFlashT:0,phase:1,spawnX,spawnY};
+  MULTI_BOSSES.push(b);
+  outLine('[BOSS MAP] '+arena.name+'에 '+b.name+' 등장! 해당 구역으로 이동하면 전투가 시작됩니다.','o-err','outputArea');
+  announce('🗺️ '+arena.name+' 발견! '+b.name+'이 기다리고 있습니다!');
+  return b;
+}
+function killMultiBoss(b){
+  if(b.dead)return;
+  b.dead=true;b.active=false;
+  for(let k=0;k<80;k++){const ang=Math.random()*Math.PI*2,sp=3+Math.random()*6;
+    PARTICLES.push({x:b.x+b.w/2,y:b.y+b.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:80,maxLife:80,
+      color:['#ffdd44','#ff8800','#cc00ff','#fff'][Math.floor(Math.random()*4)],size:4+Math.random()*5});}
+  const rw=b.reward;
+  obtainItem(rw);
+  const rwName={ak47:'🔫 AK-47',minigun:'🔫 미니건',rpg:'🚀 RPG'}[rw]||rw;
+  announce('🏆 '+b.name+' 처치! '+rwName+' 획득!');
+  outLine('[REWARD] '+rwName+' 획득! switch_gun '+rw+' 명령어로 전환 가능!','o-ok','outputArea');
+}
+function updateMultiBosses(){
+  MULTI_BOSSES.forEach(b=>{
+    if(b.dead)return;
+    // 보스맵 진입 시에만 활성화 (전용 보스맵 시스템)
+    if(!b.active){
+      if(Math.abs(P.x-b.arenaX)<400){
+        b.active=true;
+        announce('⚠️ '+b.name+' 전투 시작! 처치하면 '+({ak47:'🔫 AK-47',minigun:'🔫 미니건',rpg:'🚀 RPG'}[b.reward])+'을 획득!');
+        outLine('[BOSS MAP] ⚠️ '+b.name+' 활성화!','o-err','outputArea');
+      }
+      return;
+    }
+    const hpR=b.hp/b.maxHp;
+    if(hpR>0.6)b.phase=1;else if(hpR>0.3)b.phase=2;else b.phase=3;
+    const spd=b.speed*(1+b.phase*0.25);
+    const dx=P.x-(b.x+b.w/2);
+    if(Math.abs(dx)>25){b.vx=(dx>0?1:-1)*spd;b.face=(dx>0?1:-1);}else b.vx*=0.6;
+    b.knockX*=0.75;b.vx+=b.knockX;phys(b);
+    if(b.y>H+200){b.x=b.spawnX;b.y=b.spawnY-b.h;b.vy=0;}
+    b.anim+=0.1;
+    b.attackTimer++;
+    if(b.attackTimer>b.jumpI&&b.onGround){b.vy=-(8+b.phase*1.5);b.onGround=false;b.attackTimer=0;}
+    b.skillTimer++;if(b.skillFlashT>0)b.skillFlashT--;
+    if(b.skillTimer>b.skillCd){
+      b.skillTimer=0;b.skillFlashT=30;
+      announce('⚠️ '+b.name+' 스킬 발동!');
+      for(let k=0;k<50;k++){const ang=Math.random()*Math.PI*2,sp=3+Math.random()*5;
+        PARTICLES.push({x:b.x+b.w/2,y:b.y+b.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:30,maxLife:30,color:b.color,size:3+Math.random()*3});}
+      const dist=Math.hypot((b.x+b.w/2)-(P.x+P.w/2),(b.y+b.h/2)-(P.y+P.h/2));
+      if(!P.god&&dist<170){P.vx=((P.x-b.x)>0?1:-1)*9;P.vy=-5;playerDeaths++;resetP();}
+    }
+    if(!P.god&&aabb(P.x,P.y,P.w,P.h,b.x,b.y,b.w,b.h)){
+      outLine('[BOSS] '+b.name+'에게 맞았다!','o-err','outputArea');playerDeaths++;resetP();
+    }
+    if(b.hp<=0&&!b.dead)killMultiBoss(b);
+  });
+}
+
+// ═══════════════════════════════════════════
+// 🏃 어려운 점프맵 (시작 지점 왼쪽 위 숨겨진 루트)
+// ═══════════════════════════════════════════
+const JUMP_MAP_PLATS=[
+  {x:50,  y:190, w:40, h:10, c:'#004400'},
+  {x:100, y:165, w:18, h:8,  c:'#006600'},
+  {x:135, y:140, w:14, h:8,  c:'#008800'},
+  {x:162, y:112, w:16, h:8,  c:'#006600'},
+  {x:185, y:85,  w:12, h:8,  c:'#009900'},
+  {x:205, y:58,  w:12, h:8,  c:'#008800'},
+  {x:225, y:32,  w:14, h:8,  c:'#00aa00'},
+  {x:248, y:50,  w:10, h:8,  c:'#00cc00'},
+  {x:268, y:70,  w:10, h:8,  c:'#009900'},
+  {x:288, y:42,  w:10, h:8,  c:'#00bb00'},
+  {x:310, y:20,  w:10, h:8,  c:'#00ff41'},
+  {x:325, y:5,   w:50, h:10, c:'#00ff88'},
+];
+let jumpMapActive=false;
+let jumpMapGoalChecked=false;
+function checkJumpMap(){
+  const start=JUMP_MAP_PLATS[0];
+  if(!jumpMapActive&&P.vy>=0&&aabb(P.x,P.y,P.w,P.h,start.x,start.y,start.w,start.h+5)){
+    jumpMapActive=true;
+    announce('🏃 어려운 점프맵 도전! 꼭대기 초록 발판에 도달하면 🔫 글록17 획득!');
+    outLine('[JUMP MAP] 점프맵 시작! 아주 좁은 발판을 타고 맨 위로 올라가세요!','o-sys','outputArea');
+  }
+  if(jumpMapCleared)return;
+  const goal=JUMP_MAP_PLATS[JUMP_MAP_PLATS.length-1];
+  if(jumpMapActive&&P.vy>=0&&aabb(P.x,P.y,P.w,P.h,goal.x,goal.y,goal.w,goal.h+20)&&!jumpMapGoalChecked){
+    jumpMapGoalChecked=true;jumpMapCleared=true;
+    obtainItem('sword');
+    announce('🎉 점프맵 클리어! ⚔️ 카타나 획득!');
+    outLine('[REWARD] ⚔️ 카타나 획득! sword_attack() 사용 가능!','o-ok','outputArea');
+    for(let k=0;k<60;k++){const ang=Math.random()*Math.PI*2,sp=2+Math.random()*5;
+      PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:60,maxLife:60,
+        color:['#00ff41','#00aaff','#ffff00','#fff'][Math.floor(Math.random()*4)],size:3+Math.random()*4});}
+  }
+}
 const ZONE_LABELS=[
   {x:100,  y:400, text:'🟢 Zone 1: 정글'},
   {x:1350, y:180, text:'⚔️ Zone 2: 칼의 신전'},
@@ -923,19 +1293,33 @@ document.addEventListener('keydown',e=>{
   if(!inp&&['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(!inp&&e.code==='KeyR')resetP();
   if(!inp&&e.code==='F5'){e.preventDefault();runCode();}
+  // Z or X 키 꾹 누르면 연사
+  if(!inp&&(e.code==='KeyZ'||e.code==='KeyX')){
+    if(!autoFireHeld){autoFireHeld=true;autoFireTimer=0;doAutoAttack();}
+  }
 });
-document.addEventListener('keyup',e=>keys[e.code]=false);
+document.addEventListener('keyup',e=>{
+  keys[e.code]=false;
+  // 연사 해제
+  if(e.code==='KeyZ'||e.code==='KeyX') autoFireHeld=false;
+});
 
 function aabb(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;}
 
 function phys(obj){
+  const prevX=obj.x, prevY=obj.y;
   obj.vy=(obj.vy||0)+GRAV;
   obj.x+=obj.vx||0;obj.y+=obj.vy;
   obj.onGround=false;
+  // ★ 발판 통과(tunneling) 버그 수정: 이전 위치~현재 위치 사이를 모두 검사해서
+  // 빠르게 움직이거나 좁은 발판이라도 확실히 밟히게 한다 (스윕 충돌 판정)
+  const loX=Math.min(prevX,obj.x), hiX=Math.max(prevX,obj.x)+obj.w;
   for(const pl of PLATS){
-    if(aabb(obj.x,obj.y,obj.w,obj.h,pl.x,pl.y,pl.w,pl.h)){
-      const pb=obj.y+obj.h-obj.vy;
-      if(pb<=pl.y+2&&obj.vy>=0){obj.y=pl.y-obj.h;obj.vy=0;obj.onGround=true;}
+    const overlapX = loX < pl.x+pl.w && hiX > pl.x;
+    if(!overlapX)continue;
+    const prevBottom=prevY+obj.h, newBottom=obj.y+obj.h;
+    if(obj.vy>=0 && prevBottom<=pl.y+2 && newBottom>=pl.y){
+      obj.y=pl.y-obj.h;obj.vy=0;obj.onGround=true;
     }
   }
 }
@@ -997,9 +1381,7 @@ function checkSword(){
       life:30,maxLife:30,color:Math.random()>.5?'#ffdd44':'#ffaa00',size:2+Math.random()*2});
   }
   if(aabb(P.x,P.y,P.w,P.h,SWORD.x,SWORD.y,SWORD.w*2,20)){
-    SWORD.collected=true;
-    playerHasSword=true;
-    P.bodyColor='#cc8800';
+    obtainItem('sword');
     outLine('[ITEM] ⚔️ 칼 획득! sword_attack() / sword_throw() 명령어 사용 가능!','o-ok','outputArea');
     syncWeaponUI();
     for(let k=0;k<40;k++){
@@ -1097,8 +1479,12 @@ function updateBoss(){
   // 보스 사망 처리
   if(BOSS.hp<=0&&!BOSS.dead){
     BOSS.dead=true;BOSS.active=false;
-    announce('🎉 보스를 처치했습니다! 오른쪽 계단으로 탈출하세요!');
-    outLine('[BOSS] 🎉 보스 처치! 페이즈 5까지 클리어!','o-ok','outputArea');
+    announce('🎉 보스를 처치했습니다! 🔫 AK-47 획득! 오른쪽 계단으로 탈출하세요!');
+    outLine('[BOSS] 🎉 보스 처치! 🔫 AK-47 획득!','o-ok','outputArea');
+    obtainItem('ak47');
+    clearPlatActive=true;
+    outLine('[CLEAR] 🏆 클리어 발판이 열렸습니다! 맵 오른쪽 끝으로 이동하세요!','o-ok','outputArea');
+    announce('🏆 클리어 발판이 열렸습니다! 오른쪽 끝으로 이동하세요!');
     for(let k=0;k<80;k++){
       const ang=Math.random()*Math.PI*2,sp=3+Math.random()*6;
       PARTICLES.push({x:BOSS.x+BOSS.w/2,y:BOSS.y+BOSS.h/2,
@@ -1110,19 +1496,28 @@ function updateBoss(){
   }
 }
 
-// ── 구역 진입 체크 ──
+// ── 구역(스테이지) 진입 체크 ── (스테이지 1~20, 10=쉬움 / 15=보통 / 20=어려움 보스맵)
 let lastZone=-1;
+const STAGE_BOSS_SPAWNED={10:false,15:false,20:false};
+function currentStage(){
+  let stage=1;
+  for(let i=1;i<STAGE_X.length;i++){ if(P.x>=STAGE_X[i]) stage=i+1; }
+  return Math.min(stage, STAGE_X.length);
+}
 function checkZone(){
-  let zone=0;
-  if(P.x>5400)zone=5;
-  else if(P.x>3900)zone=4;
-  else if(P.x>2600)zone=3;
-  else if(P.x>1350)zone=2;
-  else if(P.x>550)zone=1;
-  if(zone!==lastZone){
-    lastZone=zone;
-    const names=['🟢 정글','⚔️ 칼의 신전','🌑 허공의 다리','💎 수정 동굴','🔥 용암 지대','👾 보스 아레나'];
-    if(names[zone])outLine('[ZONE] 📍 구역 진입: '+names[zone],'o-sys','outputArea');
+  const stage=currentStage();
+  if(stage!==lastZone){
+    lastZone=stage;
+    stageCount=stage;
+    const names=['🟢 정글','⚔️ 칼의 신전','🌑 허공의 다리','💎 수정 동굴','🔥 용암 지대','👾 보스 아레나',
+      '🏃 스테이지 7','🌉 스테이지 8','🌉 스테이지 9','🟢 EASY 보스맵 (난이도: 쉬움)',
+      '🌀 스테이지 11','🌀 스테이지 12','🌀 스테이지 13','🌀 스테이지 14','🟡 NORMAL 보스맵 (난이도: 보통)',
+      '🔥 스테이지 16','🔥 스테이지 17','🔥 스테이지 18','🔥 스테이지 19','🔴 HARD 보스맵 (난이도: 어려움)'];
+    if(names[stage-1])outLine('[STAGE '+stage+'/20] 📍 '+names[stage-1]+' 진입','o-sys','outputArea');
+    // ★ 10=쉬움 / 15=보통 / 20=어려움 — 각 스테이지에 도달하면 해당 전용 보스맵에 보스 소환
+    if(stage===10&&!STAGE_BOSS_SPAWNED[10]){STAGE_BOSS_SPAWNED[10]=true;createMultiBoss('easy');}
+    if(stage===15&&!STAGE_BOSS_SPAWNED[15]){STAGE_BOSS_SPAWNED[15]=true;createMultiBoss('normal');}
+    if(stage===20&&!STAGE_BOSS_SPAWNED[20]){STAGE_BOSS_SPAWNED[20]=true;createMultiBoss('hard');}
   }
 }
 function updateP2(){
@@ -1261,10 +1656,19 @@ const HD_NS = {
   stats:()=>pyBridge('stats',[]),
   sword_attack:(n)=>pyBridge('sword_attack',[n||60]),
   sword_throw:(n)=>pyBridge('sword_throw',[n||100]),
-  get_sword:()=>{playerHasSword=true;SWORD.collected=true;P.bodyColor='#cc8800';syncWeaponUI();return '⚔️ 칼 획득!';},
-  get_gun:()=>{playerHasGun=true;GUN.collected=true;syncWeaponUI();return '🔫 글록17 획득!';},
-  glock17:()=>{playerHasGun=true;GUN.collected=true;syncWeaponUI();return '🔫 글록17 획득!';},
-  gun_shoot:(n)=>pyBridge('gun_shoot',[n||25]),
+  get_sword:()=>{obtainItem('sword');return '⚔️ 카타나 획득!';},
+  get_gun:()=>{obtainItem('glock17');return '🔫 글록17 획득!';},
+  glock17:()=>{obtainItem('glock17');return '🔫 글록17 획득!';},
+  ak47:()=>{obtainItem('ak47');return '🔫 AK-47 획득!';},
+  minigun:()=>{obtainItem('minigun');return '🔫 미니건 획득!';},
+  rpg:()=>{obtainItem('rpg');return '🚀 RPG 획득!';},
+  switch_gun:(g)=>{
+    g=String(g||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!GUNS_OWNED[g])return '해당 총이 없습니다: '+g;
+    currentGun=g;return '현재 무기: '+g;
+  },
+  spawn_boss:(t)=>{const ty=String(t||'easy').toLowerCase();createMultiBoss(ty);return ty+' 보스 소환!';},
+  gun_shoot:(n)=>pyBridge('gun_shoot',[n||getCurrentGunDmg()]),
   boss_hp:()=>pyBridge('boss_hp',[]),
   enable2play:()=>enable2Play(),
   disable2play:()=>disable2Play(),
@@ -1295,12 +1699,22 @@ function pyBridge(name,argv){
     case 'kill': {const t=argv[0]!=null?String(argv[0]):'';return 'kill='+t+' → '+(killDummy(t)?'성공':'대상 없음');}
     case 'damage': {const t=argv[0]!=null?String(argv[0]):'';const d=argv[1]!=null?Number(argv[1]):20;return 'damage='+t+' -'+d+'HP → '+(damageDummy(t,d)?'성공':'대상 없음');}
     case 'sword_attack': case 'swordattack': {
-      if(!playerHasSword){return '⚔️ 칼이 없습니다! 신전(Zone 2)에서 칼을 먼저 획득하세요.';}
-      swordSwingT=14;
-      const dmg=argv[0]!=null?Number(argv[0]):60;
+      if(EQUIPPED!=='sword'){return '⚔️ 칼이 장착되어 있지 않습니다! 인벤토리에서 장착하세요.';}
+      swordSwingT=16;
+      const dmg=argv[0]!=null?Number(argv[0]):80;
       let hit=false;
+      const reach=P.face>0?{lx:P.x-10,rx:P.x+P.w+90}:{lx:P.x-90,rx:P.x+P.w+10};
+      // 멀티보스에 데미지
+      MULTI_BOSSES.forEach(b=>{
+        if(!b.dead&&b.active&&b.x+b.w>reach.lx&&b.x<reach.rx&&aabb(reach.lx,P.y,reach.rx-reach.lx,P.h,b.x,b.y,b.w,b.h)){
+          b.hp=Math.max(0,b.hp-dmg);b.knockX=(P.face||1)*5;hit=true;
+          for(let k=0;k<16;k++){const ang=Math.random()*Math.PI*2,sp=2+Math.random()*4;PARTICLES.push({x:b.x+b.w/2,y:b.y+b.h/2,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-1,life:25,maxLife:25,color:'#ff4400',size:3+Math.random()*3});}
+          announce('⚔️ '+b.name+'에게 '+dmg+' 데미지!');
+          if(b.hp<=0)killMultiBoss(b);
+        }
+      });
       // 보스에 데미지
-      if(BOSS.active&&!BOSS.dead&&aabb(P.x-40,P.y,P.w+80,P.h,BOSS.x,BOSS.y,BOSS.w,BOSS.h)){
+      if(BOSS.active&&!BOSS.dead&&aabb(reach.lx,P.y,reach.rx-reach.lx,P.h,BOSS.x,BOSS.y,BOSS.w,BOSS.h)){
         BOSS.hp=Math.max(0,BOSS.hp-dmg);
         BOSS.knockX=(P.face||1)*4;
         hit=true;
@@ -1308,12 +1722,12 @@ function pyBridge(name,argv){
         announce('⚔️ 보스에게 '+dmg+' 데미지! (HP: '+BOSS.hp+'/'+BOSS.maxHp+')');
       }
       // 더미에 데미지
-      DUMMIES.forEach(d=>{ if(!d.dead&&aabb(P.x-40,P.y,P.w+80,P.h,d.x,d.y,d.w,d.h)){damageDummy(d.name,dmg);hit=true;} });
+      DUMMIES.forEach(d=>{ if(!d.dead&&aabb(reach.lx,P.y,reach.rx-reach.lx,P.h,d.x,d.y,d.w,d.h)){damageDummy(d.name,dmg);hit=true;} });
       for(let k=0;k<12;k++){const ang=Math.random()*Math.PI*2;PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h/2,vx:Math.cos(ang)*3,vy:Math.sin(ang)*3,life:15,maxLife:15,color:'#ffdd44',size:2+Math.random()*3});}
-      return hit?'⚔️ 칼 공격! -'+dmg+'HP':'⚔️ 칼 공격 (빗나감)';
+      return hit?'⚔️ 카타나 공격! -'+dmg+'HP':'⚔️ 카타나 공격 (빗나감)';
     }
     case 'sword_throw': case 'swordthrow': {
-      if(!playerHasSword){return '⚔️ 칼이 없습니다!';}
+      if(EQUIPPED!=='sword'){return '⚔️ 칼이 장착되어 있지 않습니다!';}
       const dmg=argv[0]!=null?Number(argv[0]):100;
       if(BOSS.active&&!BOSS.dead){
         BOSS.hp=Math.max(0,BOSS.hp-dmg);
@@ -1326,22 +1740,58 @@ function pyBridge(name,argv){
       return '⚔️ 칼 던지기 -'+dmg+'HP';
     }
     case 'gun_shoot': case 'shoot': {
-      if(!playerHasGun){return '🔫 총이 없습니다! get_gun() 또는 glock17() 으로 먼저 획득하세요.';}
-      const dmg=argv[0]!=null?Number(argv[0]):25;
+      if(!hasAnyGun()){return '🔫 장착된 총이 없습니다! 인벤토리에서 총을 장착하세요.';}
+      const gun=currentGun;
+      // 미니건 과열 체크
+      if(gun==='minigun'){
+        if(minigunHeat>=100){return '🔫 미니건 과열! 잠시 기다리세요.';}
+        minigunHeat=Math.min(100,minigunHeat+8);
+      }
+      // RPG 재장전 체크
+      if(gun==='rpg'){
+        if(rpgReload>0){return '🚀 RPG 재장전 중... ('+Math.ceil(rpgReload/60)+'초)';}
+        rpgReload=180; // 3초 재장전
+      }
+      const dmgMap={glock17:25,ak47:35,minigun:18,rpg:200};
+      const dmg=argv[0]!=null?Number(argv[0]):(dmgMap[gun]||25);
       const target=findNearestTarget();
-      if(!target){
-        for(let k=0;k<6;k++){PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h*0.4,vx:(P.face||1)*(6+Math.random()*3),vy:(Math.random()-0.5)*0.6,life:10,maxLife:10,color:'#ffee88',size:2});}
-        return '🔫 총 발사 (조준된 적 없음)';
+
+      if(gun==='rpg'){
+        // RPG: 로켓 발사 (탄도)
+        const ang=GUN.aimAngle;
+        const speed=9;
+        RPG_ROCKETS.push({x:P.x+P.w/2,y:P.y+P.h*0.4,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,dmg,life:90,maxLife:90});
+        for(let k=0;k<10;k++){PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h*0.4,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,life:14,maxLife:14,color:'#ff8800',size:4});}
+        return '🚀 RPG 발사!';
       }
-      GUN.aimAngle=Math.atan2((target.y+target.h/2)-(P.y+P.h*0.4),(target.x+target.w/2)-(P.x+P.w/2));
-      spawnBullet(P.x+P.w/2,P.y+P.h*0.4,target);
-      if(target===BOSS){
-        BOSS.hp=Math.max(0,BOSS.hp-dmg);BOSS.knockX=(P.face||1)*2;
-        outLine('[GUN] 🔫 보스에게 '+dmg+' 데미지! (HP: '+BOSS.hp+'/'+BOSS.maxHp+')','o-ok','outputArea');
-      } else {
-        damageDummy(target.name,dmg);
+
+      // 나머지 총: 자동 에이밍 즉시 명중
+      const shots=gun==='minigun'?3:(gun==='ak47'?2:1);
+      let hitMsg='';
+      for(let s=0;s<shots;s++){
+        if(!target&&s===0){
+          for(let k=0;k<6;k++){PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h*0.4,vx:(P.face||1)*(6+Math.random()*3),vy:(Math.random()-0.5)*0.6,life:10,maxLife:10,color:'#ffee88',size:2});}
+          return '🔫 발사 (조준된 적 없음)';
+        }
+        if(!target)break;
+        GUN.aimAngle=Math.atan2((target.y+target.h/2)-(P.y+P.h*0.4),(target.x+target.w/2)-(P.x+P.w/2));
+        spawnBullet(P.x+P.w/2,P.y+P.h*0.4,target);
+        const singleDmg=Math.round(dmg/shots);
+        if(MULTI_BOSSES.includes(target)){
+          target.hp=Math.max(0,target.hp-singleDmg);target.knockX=(P.face||1)*2;
+          if(target.hp<=0)killMultiBoss(target);
+          hitMsg='보스 -'+singleDmg+'HP';
+        } else if(target===BOSS){
+          BOSS.hp=Math.max(0,BOSS.hp-singleDmg);BOSS.knockX=(P.face||1)*2;
+          outLine('['+gun.toUpperCase()+'] 보스 -'+singleDmg+'HP ('+BOSS.hp+'/'+BOSS.maxHp+')','o-ok','outputArea');
+          hitMsg='보스 -'+singleDmg+'HP';
+        } else {
+          damageDummy(target.name,singleDmg);
+          hitMsg=target.name+' -'+singleDmg+'HP';
+        }
       }
-      return '🔫 총 발사! -'+dmg+'HP';
+      const gunIcon={glock17:'🔫',ak47:'🔫',minigun:'🔫',rpg:'🚀'}[gun]||'🔫';
+      return gunIcon+' ['+gun.toUpperCase()+'] '+hitMsg;
     }
     case 'boss_hp': {
       if(BOSS.dead)return '보스: 사망';
@@ -1365,6 +1815,15 @@ function pyBridge(name,argv){
     case 'time': dayNight=Math.max(0,Math.min(1,argv[0]!=null?Number(argv[0]):1));return 'time='+dayNight;
     case 'ambient': ambientLevel=Math.max(0,Math.min(1,argv[0]!=null?Number(argv[0]):1));return 'ambient='+ambientLevel;
     case 'fog': fogOn=b(argv[0]);return 'fog='+fogOn;
+    case 'switch_gun': {
+      const g=String(argv[0]||'').toLowerCase();
+      if(!GUNS_OWNED[g])return '해당 총 없음: '+g;
+      currentGun=g;return '현재 무기: '+g;
+    }
+    case 'spawn_boss': {
+      const t=String(argv[0]||'easy').toLowerCase();
+      createMultiBoss(t);return t+' 보스 소환!';
+    }
     default: return null;
   }
 }
@@ -1391,25 +1850,48 @@ function runHDCommand(text){
       case 'help': case 'cmds': case 'commands': showCmdHelp();break;
 
       case 'sword_attack': case 'swordattack': {
-        if(!playerHasSword){cmdLog('⚔️ 칼이 없습니다! Zone 2 신전에서 획득하세요.','cl-err');break;}
+        if(EQUIPPED!=='sword'){cmdLog('⚔️ 칼이 장착되어 있지 않습니다! 인벤토리에서 장착하세요.','cl-err');break;}
         const dmg2=parseFloat(rest[0])||60;
         pyBridge('sword_attack',[dmg2]);cmdLog('⚔️ 칼 공격! -'+dmg2+'HP','cl-ok');break;
       }
       case 'sword_throw': case 'swordthrow': {
-        if(!playerHasSword){cmdLog('⚔️ 칼이 없습니다!','cl-err');break;}
+        if(EQUIPPED!=='sword'){cmdLog('⚔️ 칼이 장착되어 있지 않습니다!','cl-err');break;}
         const dmg3=parseFloat(rest[0])||100;
         pyBridge('sword_throw',[dmg3]);cmdLog('⚔️ 칼 던지기! -'+dmg3+'HP','cl-ok');break;
       }
       case 'get_sword': case 'getsword': {
-        playerHasSword=true;SWORD.collected=true;P.bodyColor='#cc8800';syncWeaponUI();
-        cmdLog('⚔️ 치트: 칼을 즉시 획득했습니다!','cl-ok');break;
+        obtainItem('sword');
+        cmdLog('⚔️ 치트: 칼을 즉시 획득했습니다! (인벤토리에 추가)','cl-ok');break;
       }
       case 'get_gun': case 'getgun': case 'glock17': {
-        playerHasGun=true;GUN.collected=true;syncWeaponUI();
-        cmdLog('🔫 치트: 글록17을 즉시 획득했습니다!','cl-ok');break;
+        obtainItem('glock17');
+        cmdLog('🔫 글록17을 즉시 획득했습니다!','cl-ok');break;
+      }
+      case 'ak47': case 'get_ak47': {
+        obtainItem('ak47');
+        cmdLog('🔫 AK-47 획득!','cl-ok');break;
+      }
+      case 'minigun': case 'get_minigun': {
+        obtainItem('minigun');
+        cmdLog('🔫 미니건 획득! (인벤토리에 추가)','cl-ok');break;
+      }
+      case 'rpg': case 'get_rpg': {
+        obtainItem('rpg');
+        cmdLog('🚀 RPG 획득! (인벤토리에 추가)','cl-ok');break;
+      }
+      case 'switch_gun': case 'gun': {
+        const g=(rest[0]||'').toLowerCase();
+        if(!g){cmdLog('보유 총: '+Object.keys(GUNS_OWNED).filter(k=>GUNS_OWNED[k]).join(', '),'cl-info');break;}
+        if(!GUNS_OWNED[g]){cmdLog('해당 총 없음: '+g+' (보유: '+Object.keys(GUNS_OWNED).filter(k=>GUNS_OWNED[k]).join(', ')+')','cl-err');break;}
+        currentGun=g;cmdLog('현재 무기: '+g,'cl-ok');break;
+      }
+      case 'spawn_boss': case 'spawnboss': {
+        const t=(rest[0]||'easy').toLowerCase();
+        if(!['easy','normal','hard'].includes(t)){cmdLog('사용법: spawn_boss easy|normal|hard','cl-err');break;}
+        createMultiBoss(t);cmdLog(t+' 보스 소환!','cl-ok');break;
       }
       case 'gun_shoot': case 'shoot': {
-        if(!playerHasGun){cmdLog('🔫 총이 없습니다! get_gun()으로 획득하세요.','cl-err');break;}
+        if(!hasAnyGun()){cmdLog('🔫 장착된 총이 없습니다! 인벤토리에서 총을 장착하세요.','cl-err');break;}
         const dmg4=parseFloat(rest[0])||25;
         const res=pyBridge('gun_shoot',[dmg4]);cmdLog(res,'cl-ok');break;
       }
@@ -1497,6 +1979,26 @@ function runHDCommand(text){
         }else cmdLog('대상 없음: '+target,'cl-err');
         break;
       }
+      // ── give 명령어: give 아이템 [더미이름] ──
+      case 'give': case 'giveitem': {
+        const itemId=(args[0]||'').toLowerCase();
+        const targetName=args[1];
+        if(!ITEM_DB[itemId]){
+          cmdLog('사용법: give sword|glock17|ak47|minigun|rpg [더미이름]','cl-err');
+          cmdLog('보유 가능 아이템: '+Object.keys(ITEM_DB).join(', '),'cl-info');
+          break;
+        }
+        if(targetName){
+          const d=DUMMIES.find(x=>x.name.toLowerCase()===targetName.toLowerCase());
+          if(!d){cmdLog('대상 더미를 찾을 수 없습니다: '+targetName,'cl-err');break;}
+          d.heldItem=itemId;
+          cmdLog('give: '+d.name+'에게 '+ITEM_DB[itemId].label+' 지급! (더미가 들고 있음)','cl-ok');
+        } else {
+          obtainItem(itemId);
+          cmdLog('give: '+ITEM_DB[itemId].label+' 인벤토리에 추가됨! (인벤토리 창에서 장착 가능)','cl-ok');
+        }
+        break;
+      }
       case 'stats': case 'score': {
         cmdLog('━━━ 전적 ━━━','cl-info');
         cmdLog('킬: '+playerKills+' | 데스: '+playerDeaths,'cl-info');
@@ -1544,24 +2046,47 @@ function toggleFly(){
   }
 }
 function showCmdHelp(){
-  cmdLog('━━━ HD 어드민 명령어 (2026) ━━━','cl-info');
+  cmdLog('━━━ HD 어드민 명령어 (2026 v7) ━━━','cl-info');
   cmdLog('fly / unfly / speed n / jumppower n / god / ungod','cl-info');
   cmdLog('freeze / unfreeze / respawn / goto x y / trail / untrail','cl-info');
   cmdLog('char 이름 / size n / bodycolor #hex / headcolor #hex','cl-info');
   cmdLog('invisible / visible / alpha 0~1 / ff / unff','cl-info');
   cmdLog('announce 메시지 / h 메시지 / pm 메시지 / say 메시지','cl-info');
   cmdLog('2play / un2play  (두번째 플레이어 IJKL+U)','cl-info');
-  cmdLog('kill dummy1 / kill bummy2 / skill-creator dummy1','cl-info');
+  cmdLog('kill dummy1 / kill bummy2 / damage dummy1 50','cl-info');
   cmdLog('dance / undance / sit / unsit / explode','cl-info');
   cmdLog('fire / nofire / smoke / nosmoke / sparkles / nosparkles','cl-info');
   cmdLog('time 0~1 / ambient 0~1 / fog / unfog  (환경 효과)','cl-info');
-  cmdLog('run print("hello")  ← 파이썬 코드 즉시 실행','cl-info');
-  cmdLog('예: fly me / speed me 30 / char me Neo / dance me','cl-info');
-  cmdLog('★ 파이썬 에디터에서도 fly(True), speed(20), dance(True) 처럼','cl-info');
-  cmdLog('  print()뿐 아니라 명령어 함수를 직접 호출해 캐릭터를 조종할 수 있어요!','cl-info');
+  cmdLog('━━━ ⚔️ 무기 명령어 ━━━','cl-info');
+  cmdLog('get_sword  → 카타나 즉시 획득','cl-info');
+  cmdLog('get_gun    → 글록17 획득 (점프맵 클리어 보상)','cl-info');
+  cmdLog('ak47       → AK-47 획득 (보스/Easy보스 보상)','cl-info');
+  cmdLog('minigun    → 미니건 획득 (Normal 보스 보상)','cl-info');
+  cmdLog('rpg        → RPG 획득 (Hard 보스 보상)','cl-info');
+  cmdLog('switch_gun glock17|ak47|minigun|rpg  → 무기 전환','cl-info');
+  cmdLog('gun_shoot  → 현재 총 발사 (자동 에이밍)','cl-info');
+  cmdLog('sword_attack n  → 카타나 공격 (기본 80 데미지)','cl-info');
+  cmdLog('━━━ 🎒 인벤토리 명령어 ━━━','cl-info');
+  cmdLog('give 아이템 [더미이름]  → 아이템 획득 (또는 더미에게 지급)','cl-info');
+  cmdLog('예) give ak47 / give rpg dummy1','cl-info');
+  cmdLog('상단 "인벤토리" 버튼에서 보유 아이템 1개씩 장착/해제 가능','cl-info');
+  cmdLog('★ 죽으면 장착한 무기만 해제되어 인벤토리로 돌아갑니다 (아이템 보존)','cl-info');
+  cmdLog('━━━ 👾 보스 명령어 ━━━','cl-info');
+  cmdLog('spawn_boss easy|normal|hard  → 보스 소환','cl-info');
+  cmdLog('boss_hp  → 보스 HP 확인','cl-info');
+  cmdLog('boss_kill  → 현재 보스 즉시 처치','cl-info');
+  cmdLog('★ 점프맵: 시작지점(x:50~380) 위쪽 좁은 발판 올라가면 도전!','cl-info');
+  cmdLog('★ 비밀길: 시작지점 바로 위 숨겨진 좁은 발판들을 따라가면 보상!','cl-info');
+  cmdLog('★ 스테이지 1~20: 10=쉬움 / 15=보통 / 20=어려움 보스가 전용 보스맵에 등장!','cl-info');
 }
 function resetP(){
   P.x=100;P.y=380;P.vx=0;P.vy=0;P.h=P.baseH;crouching=false;
+  // ★ 죽으면(리스폰) 장착 중인 무기만 "장착 해제"되어 인벤토리로 돌아간다.
+  // 아이템 자체는 사라지지 않으며 give로 얻은 것도 그대로 인벤토리에 남는다.
+  if(EQUIPPED){
+    outLine('[사망] 💀 장착 중이던 무기가 해제되어 인벤토리로 돌아갔습니다. (아이템은 보존됨)','o-err','outputArea');
+    unequipItem();
+  }
 }
 function updateCam(){
   camX+=(P.x-W*0.35-camX)*0.1;
@@ -1655,6 +2180,30 @@ function drawGame(){
     }
   });
 
+  // ── 🏆 클리어 발판 (보스 클리어 후 활성화) ──
+  if(clearPlatActive){
+    const cp=CLEAR_PLAT;
+    const cx=cp.x-camX, cy=cp.y-camY;
+    ctx.save();
+    // 발판 본체
+    const grad=ctx.createLinearGradient(cx,cy,cx,cy+cp.h);
+    grad.addColorStop(0,'#00cc66');grad.addColorStop(1,'#006633');
+    ctx.fillStyle=grad;ctx.fillRect(cx,cy,cp.w,cp.h);
+    ctx.strokeStyle='#00ff88';ctx.lineWidth=2;ctx.strokeRect(cx,cy,cp.w,cp.h);
+    // 반짝이는 테두리
+    const pulse=0.5+0.5*Math.sin(Date.now()/200);
+    ctx.shadowColor='#00ff88';ctx.shadowBlur=10+pulse*10;
+    ctx.strokeStyle='rgba(0,255,136,'+( 0.6+pulse*0.4)+')';ctx.lineWidth=2;
+    ctx.strokeRect(cx,cy,cp.w,cp.h);ctx.shadowBlur=0;
+    // 라벨
+    ctx.font='bold 12px Courier New';ctx.textAlign='center';
+    ctx.fillStyle='#00ff88';
+    ctx.fillText('🏆 CLEAR START',cx+cp.w/2,cy-12);
+    ctx.fillStyle='rgba(0,255,136,0.8)';ctx.font='9px Courier New';
+    ctx.fillText('[ 밟으면 모든 무기 획득 + 연사 ON ]',cx+cp.w/2,cy-2);
+    ctx.restore();
+  }
+
   // ── 구역 레이블 ──
   ctx.save();ctx.font='bold 11px Courier New';ctx.textAlign='left';
   ZONE_LABELS.forEach(lbl=>{
@@ -1666,28 +2215,58 @@ function drawGame(){
   });
   ctx.restore();
 
-  // ── 칼 아이템 ──
+  // ── 카타나 아이템 ──
   if(!SWORD.collected){
     const sx=SWORD.x-camX,sy=SWORD.y-camY+Math.sin(SWORD.anim)*5;
-    // 빛나는 후광
     ctx.save();
-    const grd=ctx.createRadialGradient(sx+11,sy+4,2,sx+11,sy+4,22);
-    grd.addColorStop(0,'rgba(255,220,50,0.35)');
-    grd.addColorStop(1,'rgba(255,150,0,0)');
-    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(sx+11,sy+4,22,0,Math.PI*2);ctx.fill();
-    // 칼날
-    ctx.fillStyle='#dddddd';ctx.fillRect(sx,sy+2,36,5);
-    // 손잡이
-    ctx.fillStyle='#8a6500';ctx.fillRect(sx+28,sy,8,10);
-    // 가드
-    ctx.fillStyle='#ccaa00';ctx.fillRect(sx+24,sy-3,4,16);
+    // 빛나는 후광
+    const grd=ctx.createRadialGradient(sx+20,sy+4,2,sx+20,sy+4,28);
+    grd.addColorStop(0,'rgba(255,220,50,0.4)');grd.addColorStop(1,'rgba(255,150,0,0)');
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(sx+20,sy+4,28,0,Math.PI*2);ctx.fill();
+    // 손잡이 (쓰카)
+    ctx.fillStyle='#5a3a00';ctx.fillRect(sx,sy+1,12,7);
+    // 가드 (쓰바)
+    ctx.fillStyle='#ccaa00';ctx.fillRect(sx+10,sy-3,5,13);
+    // 칼날 (길고 얇음)
+    ctx.fillStyle='#e0e0e0';ctx.fillRect(sx+14,sy+2,58,4);
     // 칼날 반짝임
-    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fillRect(sx+2,sy+2,14,2);
+    ctx.fillStyle='rgba(255,255,255,0.8)';ctx.fillRect(sx+16,sy+2,30,2);
+    // 칼끝
+    ctx.fillStyle='#cccccc';
+    ctx.beginPath();ctx.moveTo(sx+72,sy+2);ctx.lineTo(sx+76,sy+4);ctx.lineTo(sx+72,sy+6);ctx.closePath();ctx.fill();
     ctx.restore();
-    // ⚔️ 레이블
     ctx.save();ctx.font='bold 10px Courier New';ctx.textAlign='center';
-    ctx.fillStyle='#ffdd44';ctx.fillText('⚔️ SWORD',sx+11,sy-10);ctx.restore();
+    ctx.fillStyle='#ffdd44';ctx.fillText('⚔️ KATANA',sx+38,sy-10);ctx.restore();
   }
+
+  // ── 🗝️ 비밀길 보상 상자 ──
+  if(!SECRET_CHEST.collected){
+    const cx=SECRET_CHEST.x-camX,cy=SECRET_CHEST.y-camY;
+    ctx.save();
+    const grd2=ctx.createRadialGradient(cx+10,cy+7,2,cx+10,cy+7,24);
+    grd2.addColorStop(0,'rgba(51,255,153,0.45)');grd2.addColorStop(1,'rgba(51,255,153,0)');
+    ctx.fillStyle=grd2;ctx.beginPath();ctx.arc(cx+10,cy+7,24,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#553311';ctx.fillRect(cx,cy,20,14);
+    ctx.fillStyle='#ffcc33';ctx.fillRect(cx,cy+5,20,3);
+    ctx.fillStyle='#ffee88';ctx.fillRect(cx+8,cy+5,4,5);
+    ctx.font='bold 10px Courier New';ctx.textAlign='center';
+    ctx.fillStyle='#33ff99';ctx.fillText('🗝️ SECRET',cx+10,cy-10);
+    ctx.restore();
+  }
+
+  // ── 점프맵 발판 ──
+  JUMP_MAP_PLATS.forEach((pl,i)=>{
+    ctx.fillStyle=pl.c;ctx.fillRect(pl.x-camX,pl.y-camY,pl.w,pl.h);
+    ctx.strokeStyle='rgba(0,255,65,0.4)';ctx.lineWidth=1;ctx.strokeRect(pl.x-camX,pl.y-camY,pl.w,pl.h);
+    if(i===0){
+      ctx.save();ctx.font='bold 9px Courier New';ctx.textAlign='center';ctx.fillStyle='#88ff88';
+      ctx.fillText('▲ 점프맵',pl.x-camX+pl.w/2,pl.y-camY-5);ctx.restore();
+    }
+    if(i===JUMP_MAP_PLATS.length-1&&!jumpMapCleared){
+      ctx.save();ctx.font='bold 10px Courier New';ctx.textAlign='center';
+      ctx.fillStyle='#00ffaa';ctx.fillText('🔫 GOAL',pl.x-camX+pl.w/2,pl.y-camY-8);ctx.restore();
+    }
+  });
 
   // dummies
   ctx.font='9px Courier New';ctx.textAlign='center';
@@ -1700,7 +2279,40 @@ function drawGame(){
     ctx.fillRect(bx,by,bw*hp,bh);
     ctx.strokeStyle='#005500';ctx.lineWidth=0.5;ctx.strokeRect(bx,by,bw,bh);
     ctx.fillStyle='#555';ctx.fillText(d.name,d.x-camX+d.w/2,d.y-camY-7);
+    if(d.heldItem&&ITEM_DB[d.heldItem]){
+      ctx.fillStyle='#ffdd44';ctx.fillText(ITEM_DB[d.heldItem].icon+' '+ITEM_DB[d.heldItem].label,d.x-camX+d.w/2,d.y-camY-18);
+    }
     drawChar(d.x,d.y,d.w,d.h,-1,0,d.bodyColor||'#888',d.headColor||'#aaa',d.onGround,1);
+  });
+
+  // ── 멀티 보스 (쉬움/보통/어려움) ──
+  MULTI_BOSSES.forEach(b=>{
+    if(!b.active||b.dead)return;
+    const bx=b.x-camX,by2=b.y-camY;
+    // HP바
+    ctx.save();
+    const bw2=60,bh2=5;
+    const bxb=bx+b.w/2-bw2/2,byb=by2-20;
+    ctx.fillStyle='#330000';ctx.fillRect(bxb,byb,bw2,bh2);
+    const bhr=b.hp/b.maxHp;
+    ctx.fillStyle=b.type==='easy'?'#00cc00':b.type==='normal'?'#ffaa00':'#cc00ff';
+    ctx.fillRect(bxb,byb,bw2*bhr,bh2);
+    ctx.strokeStyle='#ffffff44';ctx.lineWidth=0.5;ctx.strokeRect(bxb,byb,bw2,bh2);
+    // 이름
+    ctx.font='bold 9px Courier New';ctx.textAlign='center';ctx.fillStyle='#fff';
+    ctx.fillText(b.name,bx+b.w/2,by2-25);
+    // 페이즈 glow
+    if(b.phase>=2){
+      const bg=ctx.createRadialGradient(bx+b.w/2,by2+b.h/2,5,bx+b.w/2,by2+b.h/2,40);
+      bg.addColorStop(0,b.color+'88');bg.addColorStop(1,'transparent');
+      ctx.fillStyle=bg;ctx.beginPath();ctx.arc(bx+b.w/2,by2+b.h/2,40,0,Math.PI*2);ctx.fill();
+    }
+    if(b.skillFlashT>0){
+      ctx.strokeStyle='rgba(255,255,0,'+(b.skillFlashT/30)+')';ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(bx+b.w/2,by2+b.h/2,150*(1-b.skillFlashT/30),0,Math.PI*2);ctx.stroke();
+    }
+    ctx.restore();
+    drawChar(b.x,b.y,b.w,b.h,b.face,b.anim,b.color,b.headColor,b.onGround,1);
   });
 
   // ── 보스 ──
@@ -1745,25 +2357,61 @@ function drawGame(){
     });
   } else P.trailPts.length=0;
 
-  // ── 칼 장착 이펙트 (휘두를 때 칼날이 손 모양에 맞춰 회전) ──
-  if(playerHasSword&&P.visible){
+  // ── 카타나 장착 이펙트 (긴 칼날 + 올바른 손잡이 위치) ──
+  if(EQUIPPED==='sword'&&P.visible){
     if(swordSwingT>0)swordSwingT--;
-    const swing=swordSwingT>0?(swordSwingT/14)*1.1:0;
-    const sx=P.x-camX+(P.face>0?P.w:0),sy=P.y-camY+P.h*0.35;
-    ctx.save();ctx.translate(sx,sy);ctx.scale(P.face,1);ctx.rotate(-swing);
-    ctx.fillStyle='#dddddd';ctx.fillRect(0,-2,18,4);
-    ctx.fillStyle='#ccaa00';ctx.fillRect(14,-4,4,8);
-    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.fillRect(1,-1,8,1.5);
+    const swing=swordSwingT>0?(swordSwingT/16)*1.3:0;
+    // 카타나는 오른손(face>0이면 오른쪽) 위치에서 시작
+    const hx=P.x-camX+(P.face>0?P.w-2:-3); // 손잡이 위치
+    const hy=P.y-camY+P.h*0.32;
+    ctx.save();ctx.translate(hx,hy);ctx.scale(P.face,1);
+    ctx.rotate(-0.2-swing);
+    // 손잡이 (쓰카)
+    ctx.fillStyle='#5a3a00';ctx.fillRect(-2,-4,10,8);
+    // 가드 (쓰바) — 손잡이 끝
+    ctx.fillStyle='#ccaa00';ctx.fillRect(7,-6,4,12);
+    // 칼날 (나가사 — 길고 얇음, 약간 곡선 느낌)
+    ctx.fillStyle='#e8e8e8';ctx.fillRect(10,-2,52,4);
+    // 칼날 윗면 반짝임
+    ctx.fillStyle='rgba(255,255,255,0.75)';ctx.fillRect(12,-1,28,1.5);
+    // 칼날 끝(뾰족)
+    ctx.fillStyle='#cccccc';
+    ctx.beginPath();ctx.moveTo(62,-2);ctx.lineTo(66,0);ctx.lineTo(62,2);ctx.closePath();ctx.fill();
     ctx.restore();
   }
 
-  // ── 총 장착 이펙트 (근처 적 쪽으로 총구가 자동 조준) ──
-  if(playerHasGun&&P.visible){
+  // ── 총 장착 이펙트 (총 종류별 외형 + 자동 에이밍) ──
+  if(hasAnyGun()&&P.visible){
     const gx=P.x-camX+P.w/2,gy=P.y-camY+P.h*0.4;
     ctx.save();ctx.translate(gx,gy);ctx.rotate(GUN.aimAngle);
-    ctx.fillStyle='#333333';ctx.fillRect(-4,-3,22,6);   // 총신
-    ctx.fillStyle='#222222';ctx.fillRect(14,-4,6,3);     // 총구
-    ctx.fillStyle='#555555';ctx.fillRect(-6,2,7,8);      // 손잡이
+    if(currentGun==='rpg'){
+      ctx.fillStyle='#556655';ctx.fillRect(-5,-5,45,10);  // 발사관
+      ctx.fillStyle='#334433';ctx.fillRect(-8,0,8,6);     // 손잡이
+      ctx.fillStyle='#778877';ctx.fillRect(40,-7,8,14);   // 로켓 끝
+    } else if(currentGun==='minigun'){
+      ctx.fillStyle='#444';ctx.fillRect(-6,-6,30,12);     // 본체
+      for(let i=0;i<3;i++){ctx.fillStyle='#666';ctx.fillRect(22,i*4-4,12,3);}  // 총열 3개
+      ctx.fillStyle='#333';ctx.fillRect(-8,3,8,8);        // 손잡이
+    } else if(currentGun==='ak47'){
+      ctx.fillStyle='#4a3500';ctx.fillRect(-4,-3,30,6);   // 목재 부분
+      ctx.fillStyle='#2a2a2a';ctx.fillRect(22,-3,14,5);   // 총신
+      ctx.fillStyle='#3a2500';ctx.fillRect(-5,3,6,9);     // 개머리
+      ctx.fillStyle='#222';ctx.fillRect(2,3,8,6);          // 탄창
+    } else { // glock17
+      ctx.fillStyle='#333333';ctx.fillRect(-4,-3,22,6);
+      ctx.fillStyle='#222222';ctx.fillRect(14,-4,6,3);
+      ctx.fillStyle='#555555';ctx.fillRect(-6,2,7,8);
+    }
+    // 과열 표시 (미니건)
+    if(currentGun==='minigun'&&minigunHeat>50){
+      ctx.fillStyle='rgba(255,'+(minigunHeat*2)+',0,0.6)';
+      ctx.fillRect(-6,-6,30*(minigunHeat/100),3);
+    }
+    ctx.restore();
+    // 현재 무기 표시
+    ctx.save();ctx.font='bold 9px Courier New';ctx.textAlign='center';
+    const gunLabel={glock17:'🔫 G17',ak47:'🔫 AK',minigun:'🔫 MG',rpg:'🚀 RPG'}[currentGun]||'🔫';
+    ctx.fillStyle='#ffee88';ctx.fillText(gunLabel,P.x-camX+P.w/2,P.y-camY-18);
     ctx.restore();
   }
   drawBullets();
@@ -1777,7 +2425,9 @@ function drawGame(){
       ctx.restore();
     }
     ctx.font='9px Courier New';ctx.textAlign='center';
-    ctx.fillStyle=P.god?'#ffff00':'#00ff41';ctx.fillText(P.name+(playerHasSword?' ⚔':''),P.x-camX+P.w/2,P.y-camY-7);
+    ctx.fillStyle=P.god?'#ffff00':'#00ff41';
+    const weaponTag=(EQUIPPED==='sword'?' ⚔':'')+(hasAnyGun()?' '+{glock17:'G17',ak47:'AK',minigun:'MG',rpg:'RPG'}[currentGun]:'');
+    ctx.fillText(P.name+weaponTag,P.x-camX+P.w/2,P.y-camY-7);
   }
   if(player2){
     drawChar(player2.x,player2.y,player2.w,player2.h,player2.face,player2.anim,player2.bodyColor,player2.headColor,player2.onGround,1);
@@ -1787,7 +2437,50 @@ function drawGame(){
   drawParticles();
   drawEnvOverlay();
 }
-function gameLoop(){updateP();updateP2();updateDM();updateBoss();checkSword();checkZone();checkDummyRespawns();updateCam();updateParticles();updateBullets();updateGunAim();drawGame();updateBubblePos();requestAnimationFrame(gameLoop);}
+// ── 클리어 발판 체크 (보스 클리어 후 맵 오른쪽 끝 발판 밟으면 모든 무기 획득 + 연사 ON) ──
+function checkClearPlat(){
+  if(!clearPlatActive||clearGameStarted)return;
+  const cp=CLEAR_PLAT;
+  // 플레이어가 발판 위에 착지했는지 체크
+  if(P.vy>=0&&aabb(P.x,P.y,P.w,P.h,cp.x,cp.y,cp.w,cp.h+6)&&
+     P.y+P.h>=cp.y&&P.y+P.h<=cp.y+cp.h+8){
+    clearGameStarted=true;
+    // 모든 무기 동시 획득
+    obtainItem('sword');
+    obtainItem('glock17');
+    obtainItem('ak47');
+    obtainItem('minigun');
+    obtainItem('rpg');
+    // 미니건 장착
+    equipItem('minigun');
+    // 연사 모드 자동 ON
+    autoFireHeld=true;
+    announce('🎉 ALL CLEAR! 모든 무기 획득 + 연사 모드 ON!');
+    outLine('[CLEAR] 🏆 게임 클리어! 모든 무기(카타나/글록/AK-47/미니건/RPG) 획득! 연사 모드 ON!','o-ok','outputArea');
+    for(let k=0;k<100;k++){
+      const ang=Math.random()*Math.PI*2,sp=3+Math.random()*7;
+      PARTICLES.push({x:P.x+P.w/2,y:P.y+P.h/2,
+        vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,
+        life:90,maxLife:90,
+        color:['#ffdd44','#00ff41','#00aaff','#cc00ff','#ff4400'][Math.floor(Math.random()*5)],
+        size:4+Math.random()*5});
+    }
+  }
+}
+
+// ── 연사(오토파이어) 업데이트 ──
+function updateAutoFire(){
+  if(!autoFireHeld)return;
+  if(!hasAnyGun())return;
+  autoFireTimer--;
+  if(autoFireTimer<=0){
+    const interval=AUTO_FIRE_INTERVAL[currentGun]||18;
+    autoFireTimer=interval;
+    pyBridge('gun_shoot',[getCurrentGunDmg()]);
+  }
+}
+
+function gameLoop(){updateP();updateP2();updateDM();updateBoss();updateMultiBosses();checkSword();checkSecretChest();checkZone();checkJumpMap();checkClearPlat();checkDummyRespawns();updateCam();updateParticles();updateBullets();updateGunAim();updateAutoFire();drawGame();updateBubblePos();requestAnimationFrame(gameLoop);}
 
 // ═══════════════════════════════════════════
 //  TAB SWITCHING
@@ -3073,7 +3766,11 @@ let crouching = false;
 
   function press(action){
     held[action] = true;
-    if(action === 'attack'){ doAutoAttack(); }
+    if(action === 'attack'){
+      doAutoAttack();
+      autoFireHeld=true;   // 꾹 누르면 연사 ON
+      autoFireTimer=0;
+    }
     if(action === 'up'){
       if(flyMode){ /* fly: 위로 — updateP에서 jump key로 처리 */ }
       else if(P.onGround){ P.vy = -P.jump; P.onGround = false; }
@@ -3088,6 +3785,9 @@ let crouching = false;
   }
   function release(action){
     held[action] = false;
+    if(action==='attack'){
+      autoFireHeld=false;  // 손 떼면 연사 OFF
+    }
     if(action==='down'){
       if(flyMode){ /* 하강 멈춤은 updateP 감속 처리 */ }
       else { crouching=false; P.h=P.baseH; }
