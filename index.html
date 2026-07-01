@@ -3629,7 +3629,7 @@ function toggleMusic(){
   if(musicOn){
     masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
     masterGain.gain.linearRampToValueAtTime(0.38, audioCtx.currentTime+1.4);
-    btn.textContent = '🔊 음악';
+    btn.textContent = '음악';
     btn.classList.add('active');
     scheduleBlips();
   } else {
