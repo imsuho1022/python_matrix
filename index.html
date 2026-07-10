@@ -275,6 +275,9 @@ canvas{display:block;}
 .amsg.thinking{color:var(--gdim);font-size:11px;align-self:flex-start;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
 .amsg.thinking{animation:blink 1s infinite;}
+.aicode{margin:6px 0;background:#000;border:1px solid #00aaff44;border-radius:3px;overflow:hidden;}
+.aicode pre{margin:0;padding:8px 10px;font-size:11px;color:var(--green);white-space:pre-wrap;word-break:break-word;overflow-x:auto;}
+.aicode-btn{display:block;width:100%;border-radius:0;text-align:center;}
 #aiInputRow{display:flex;border-top:1px solid var(--gdim);flex-shrink:0;}
 #aiInput{
   flex:1;background:transparent;border:none;outline:none;
@@ -466,6 +469,7 @@ canvas{display:block;}
   <button class="tab-btn"        id="t-block"     onclick="sw('block')">블록 코딩</button>
   <button class="tab-btn"        id="t-ai"        onclick="sw('ai')">AI 질문</button>
   <button class="tab-btn"        id="t-inspector" onclick="sw('inspector')">명령어</button>
+
   <button class="tab-btn" id="musicToggle" onclick="toggleMusic()" title="배경음 ON/OFF">음악</button>
   <button class="tab-btn" id="invToggle" onclick="toggleInventoryUI()" title="인벤토리 열기/닫기">인벤토리</button>
   <div class="spacer"></div>
@@ -492,6 +496,10 @@ canvas{display:block;}
       <b>Z / X</b> 총 연사 (꾹 누르기)<br>
       <b>R</b> 리셋<br>
       <b>print</b> 실행시 캐릭터가 말함
+    </div>
+    <div id="turtleOverlay" style="display:none;position:absolute;inset:0;z-index:16;background:rgba(0,0,0,0.6);backdrop-filter:blur(1px);align-items:center;justify-content:center;">
+      <canvas id="turtleCanvas" style="max-width:92%;max-height:88%;"></canvas>
+      <button class="btn danger" id="turtleCloseBtn" onclick="hideTurtleOverlay()" style="position:absolute;top:10px;right:10px;">✕ 닫기</button>
     </div>
   </div>
 
@@ -550,8 +558,32 @@ canvas{display:block;}
         <span class="label">AI Python 튜터 (무제한 질문)</span>
         <button class="btn danger" onclick="clearAi()">대화 초기화</button>
       </div>
-      <!-- API KEY ROW 제거됨 - 자동 연결 -->
-      <div id="apiKeyRow" style="display:none;"></div>
+      <!-- API 엔진 설정: 기본은 내장 Claude, 막히면 무료 Gemini 키로 전환 가능 -->
+      <div id="apiKeyRow" style="padding:7px 8px;border-bottom:1px solid var(--gdim);font-size:10px;color:var(--gdim);display:flex;flex-direction:column;gap:5px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span class="label" style="margin:0;">AI 엔진</span>
+          <button class="btn" id="engineBtnClaude" onclick="setAiEngine('claude')">내장 (Claude)</button>
+          <button class="btn" id="engineBtnGemini" onclick="setAiEngine('gemini')">내 Gemini 키</button>
+          <button class="btn" id="engineBtnOpenrouter" onclick="setAiEngine('openrouter')">내 OpenRouter 키</button>
+          <span id="engineStatus" style="color:var(--gmid);"></span>
+        </div>
+        <div id="geminiKeyWrap" style="display:none;gap:5px;flex-wrap:wrap;align-items:center;">
+          <input id="geminiKeyInput" type="password" placeholder="Gemini API 키 붙여넣기 (AIza...)"
+            style="flex:1;min-width:160px;background:#001500;border:1px solid var(--gdim);color:var(--green);font-family:'Courier New',monospace;font-size:11px;padding:4px 6px;border-radius:2px;">
+          <button class="btn run" onclick="saveGeminiKey()">저장</button>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style="color:var(--blue);">무료 키 발급 (카드 불필요) →</a>
+          <div style="width:100%;color:var(--gdim);">Google 계정으로 로그인 → 'Create API key' 클릭하면 즉시 무료 키가 나와요. 카드 등록 필요 없어요. (이 키는 이 페이지 안에서만 메모리에 저장되고, 새로고침하면 다시 입력해야 해요)</div>
+        </div>
+        <div id="openrouterKeyWrap" style="display:none;gap:5px;flex-wrap:wrap;align-items:center;">
+          <input id="openrouterKeyInput" type="password" placeholder="OpenRouter API 키 붙여넣기 (sk-or-v1-...)"
+            style="flex:1;min-width:160px;background:#001500;border:1px solid var(--gdim);color:var(--green);font-family:'Courier New',monospace;font-size:11px;padding:4px 6px;border-radius:2px;">
+          <input id="openrouterModelInput" type="text" value="openrouter/free" placeholder="모델 ID"
+            style="width:150px;background:#001500;border:1px solid var(--gdim);color:var(--green);font-family:'Courier New',monospace;font-size:11px;padding:4px 6px;border-radius:2px;">
+          <button class="btn run" onclick="saveOpenrouterKey()">저장</button>
+          <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style="color:var(--blue);">키 발급 →</a>
+          <div style="width:100%;color:var(--gdim);">기본값 openrouter/free는 무료 모델 중 하나로 자동 라우팅돼요. 이 키는 절대 파일에 저장하지 마세요 — 여기 입력창에만 붙여넣으세요 (새로고침하면 지워짐).</div>
+        </div>
+      </div>
       <div id="aiQuickWrap">
         <button class="qbtn" onclick="aiQ('Python이 뭐야? 초보자한테 쉽게 설명해줘')">Python이란?</button>
         <button class="qbtn" onclick="aiQ('변수가 뭐야? 예제도 알려줘')">변수란?</button>
@@ -571,6 +603,9 @@ canvas{display:block;}
         <button class="qbtn" onclick="aiQ('내 코드의 오류를 찾아서 고쳐줘:\n\n'+getCode())">오류 찾기</button>
         <button class="qbtn" onclick="aiQ('이 코드를 더 좋게 개선해줘:\n\n'+getCode())">코드 개선</button>
         <button class="qbtn" onclick="aiQ('Python 코드 예제 10개 짧게 보여줘. 초보자용으로')">예제 모음</button>
+        <button class="qbtn" onclick="aiQ('turtle 모듈로 별 모양 그리는 코드 짜줘')">🐢 터틀 그림</button>
+        <button class="qbtn" onclick="aiQ('math 모듈 사용법 예제로 알려줘')">math 모듈</button>
+        <button class="qbtn" onclick="aiQ('random 모듈 사용법 예제로 알려줘')">random 모듈</button>
       </div>
       <div id="aiLog">
         <div class="amsg sys">AI Python 튜터입니다. 무엇이든 질문하세요. (무제한)</div>
@@ -1558,6 +1593,30 @@ function drawEnvOverlay(){
   if(ambientLevel<1){ctx.fillStyle='rgba(0,0,0,'+((1-ambientLevel)*0.5)+')';ctx.fillRect(0,0,W,H);}
   if(fogOn){const g=ctx.createLinearGradient(0,H*0.55,0,H);g.addColorStop(0,'rgba(200,200,200,0)');g.addColorStop(1,'rgba(200,200,200,0.28)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
 }
+// ── math / random 모듈 (Python 인터프리터용) ──
+const MATH_NS = {
+  pi:Math.PI, e:Math.E, tau:Math.PI*2, inf:Infinity, nan:NaN,
+  sqrt:Math.sqrt, floor:Math.floor, ceil:Math.ceil, fabs:Math.abs,
+  sin:Math.sin, cos:Math.cos, tan:Math.tan, asin:Math.asin, acos:Math.acos, atan:Math.atan,
+  atan2:Math.atan2, log:(x,b)=>b?Math.log(x)/Math.log(b):Math.log(x), log2:Math.log2, log10:Math.log10,
+  exp:Math.exp, pow:Math.pow, hypot:Math.hypot,
+  radians:(d)=>d*Math.PI/180, degrees:(r)=>r*180/Math.PI,
+  factorial:(n)=>{let r=1;for(let k=2;k<=n;k++)r*=k;return r;},
+  gcd:(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a;},
+  trunc:Math.trunc,
+};
+const RANDOM_NS = {
+  random:()=>Math.random(),
+  randint:(a,b)=>Math.floor(Math.random()*(b-a+1))+a,
+  uniform:(a,b)=>Math.random()*(b-a)+a,
+  choice:(arr)=>Array.isArray(arr)?arr[Math.floor(Math.random()*arr.length)]:undefined,
+  shuffle:(arr)=>{if(!Array.isArray(arr))return null;for(let k=arr.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[arr[k],arr[j]]=[arr[j],arr[k]];}return null;},
+  sample:(arr,n)=>{if(!Array.isArray(arr))return[];const c=[...arr];const out=[];for(let k=0;k<n&&c.length;k++){out.push(c.splice(Math.floor(Math.random()*c.length),1)[0]);}return out;},
+  randrange:(a,b)=>{if(b===undefined){b=a;a=0;}return Math.floor(Math.random()*(b-a))+a;},
+};
+// turtle 모듈은 상태를 가지므로 실행마다 새 인스턴스가 필요 — 모듈 자체는 마커로만 사용
+const TURTLE_MODULE = {__turtleModule:true};
+
 // ── import hd 어드민 시스템 ──
 let hdImported = false;
 // Python 인터프리터가 hd.xxx() 호출을 처리할 수 있도록 hd 네임스페이스 등록
@@ -2674,6 +2733,80 @@ function interpretPy(code,tid){
   let _returnVal=undefined;let _hasReturn=false;
   // hd 네임스페이스 주입 (import hd 또는 항상 사용 가능하도록)
   env['hd']=HD_NS;
+  env['math']=MATH_NS;
+  env['random']=RANDOM_NS;
+  env['turtle']=TURTLE_MODULE;
+  // 이번 실행에서 그려진 터틀 도형/인스턴스 (실행 끝나면 오버레이로 렌더링됨)
+  const TURTLE_OPS=[];
+  const TURTLES=[];
+  let defaultTurtle=null;
+  function newTurtleObj(){
+    const t={__turtle:true,x:0,y:0,heading:0,pen:true,penColor:'#00ff41',fillColor:'#00ff41',penWidth:2,visible:true,filling:false,fillPts:null};
+    TURTLES.push(t);return t;
+  }
+  function turtleLine(t,x1,y1,x2,y2){TURTLE_OPS.push({type:'line',x1,y1,x2,y2,color:t.penColor,width:t.penWidth});}
+  function turtleMove(t,dist){
+    const rad=t.heading*Math.PI/180;
+    const nx=t.x+Math.cos(rad)*dist, ny=t.y+Math.sin(rad)*dist;
+    if(t.pen)turtleLine(t,t.x,t.y,nx,ny);
+    if(t.filling&&t.fillPts)t.fillPts.push([nx,ny]);
+    t.x=nx;t.y=ny;
+  }
+  function turtleCall(t,mth,args){
+    const a0=args[0];
+    switch(mth){
+      case 'forward':case 'fd':turtleMove(t,Number(a0)||0);return null;
+      case 'backward':case 'bk':case 'back':turtleMove(t,-(Number(a0)||0));return null;
+      case 'right':case 'rt':t.heading+=Number(a0)||0;return null;
+      case 'left':case 'lt':t.heading-=Number(a0)||0;return null;
+      case 'penup':case 'pu':case 'up':t.pen=false;return null;
+      case 'pendown':case 'pd':case 'down':t.pen=true;return null;
+      case 'goto':case 'setpos':case 'setposition':{
+        const nx=Number(a0)||0, ny=args.length>1?(Number(args[1])||0):t.y;
+        if(t.pen)turtleLine(t,t.x,t.y,nx,ny);
+        if(t.filling&&t.fillPts)t.fillPts.push([nx,ny]);
+        t.x=nx;t.y=ny;return null;
+      }
+      case 'setx':{const nx=Number(a0)||0;if(t.pen)turtleLine(t,t.x,t.y,nx,t.y);t.x=nx;return null;}
+      case 'sety':{const ny=Number(a0)||0;if(t.pen)turtleLine(t,t.x,t.y,t.x,ny);t.y=ny;return null;}
+      case 'setheading':case 'seth':t.heading=Number(a0)||0;return null;
+      case 'home':if(t.pen)turtleLine(t,t.x,t.y,0,0);t.x=0;t.y=0;t.heading=0;return null;
+      case 'circle':{
+        const r=Number(a0)||0;const steps=24;const dir=r>=0?1:-1;
+        const startH=t.heading;
+        for(let k=0;k<steps;k++){
+          const step=(2*Math.PI*Math.abs(r))/steps;
+          turtleMove(t,step);
+          t.heading+=dir*(360/steps);
+        }
+        return null;
+      }
+      case 'color':t.penColor=cssColor(a0);if(args.length>1)t.fillColor=cssColor(args[1]);else t.fillColor=t.penColor;return null;
+      case 'pencolor':t.penColor=cssColor(a0);return null;
+      case 'fillcolor':t.fillColor=cssColor(a0);return null;
+      case 'pensize':case 'width':t.penWidth=Number(a0)||1;return null;
+      case 'speed':return null; // 애니메이션 속도는 시각효과로 생략
+      case 'begin_fill':t.filling=true;t.fillPts=[[t.x,t.y]];return null;
+      case 'end_fill':if(t.filling&&t.fillPts){TURTLE_OPS.push({type:'fill',points:t.fillPts,color:t.fillColor});}t.filling=false;t.fillPts=null;return null;
+      case 'write':TURTLE_OPS.push({type:'text',x:t.x,y:t.y,text:String(a0!=null?a0:''),color:t.penColor});return null;
+      case 'dot':TURTLE_OPS.push({type:'dot',x:t.x,y:t.y,r:a0?Number(a0)/2:4,color:args[1]?cssColor(args[1]):t.penColor});return null;
+      case 'hideturtle':case 'ht':t.visible=false;return null;
+      case 'showturtle':case 'st':t.visible=true;return null;
+      case 'clear':for(let k=TURTLE_OPS.length-1;k>=0;k--)TURTLE_OPS.splice(k,1);return null;
+      case 'reset':t.x=0;t.y=0;t.heading=0;t.pen=true;return null;
+      case 'position':case 'pos':return [t.x,t.y];
+      case 'xcor':return t.x;
+      case 'ycor':return t.y;
+      case 'heading':return t.heading;
+      default:return null;
+    }
+  }
+  function cssColor(v){
+    if(v==null)return '#00ff41';
+    const s=String(v).trim();
+    const KO={'빨강':'red','파랑':'blue','초록':'green','노랑':'yellow','검정':'black','흰색':'white','보라':'purple','주황':'orange','분홍':'pink'};
+    return KO[s]||s;
+  }
 
   function evalE(expr){
     expr=expr.trim();
@@ -2748,6 +2881,23 @@ function interpretPy(code,tid){
           if(mth==='extend'){if(Array.isArray(args[0]))obj.push(...args[0]);return null;}
           if(mth==='copy')return [...obj];
           if(mth==='clear'){obj.length=0;return null;}
+        }
+        // math / random 모듈 함수 호출
+        if((obj===MATH_NS||obj===RANDOM_NS)&&typeof obj[mth]==='function'){
+          return obj[mth](...args);
+        }
+        // turtle.Turtle() — 새 터틀 인스턴스 생성
+        if(obj===TURTLE_MODULE&&(mth==='Turtle'||mth==='Pen')){
+          return newTurtleObj();
+        }
+        // turtle.forward(100) 처럼 인스턴스 없이 모듈에 바로 쓰는 경우 — 기본 터틀 자동 생성
+        if(obj===TURTLE_MODULE){
+          if(!defaultTurtle)defaultTurtle=newTurtleObj();
+          return turtleCall(defaultTurtle,mth,args);
+        }
+        // 터틀 인스턴스 메서드 (t.forward(), t.right() 등)
+        if(obj&&obj.__turtle){
+          return turtleCall(obj,mth,args);
         }
         if(typeof obj==='object'&&obj!==null&&!Array.isArray(obj)){
           if(mth==='keys')return Object.keys(obj);
@@ -2889,6 +3039,8 @@ function interpretPy(code,tid){
 
   function exLine(line){
     line=line.trim();if(!line||line.startsWith('#'))return;
+    // import 문: math/random/turtle 등은 항상 로드되어 있으므로 그냥 무시
+    if(/^import\s+\w+/.test(line)||/^from\s+\w+\s+import\s+/.test(line))return;
     // return statement
     if(line.startsWith('return')){
       const expr=line.slice(6).trim();
@@ -3006,6 +3158,78 @@ function interpretPy(code,tid){
     }
     outLine('# 실행 완료.','o-sys',tid);
   }catch(e){outLine('[오류] '+e.message,'o-err',tid);}
+  if(TURTLE_OPS.length||TURTLES.length){
+    outLine('# 🐢 터틀 그림을 화면 위에 띄웠어요.','o-ok',tid);
+    showTurtleOverlay(TURTLE_OPS,TURTLES);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  TURTLE 오버레이 렌더링
+// ═══════════════════════════════════════════
+function hideTurtleOverlay(){
+  const ov=document.getElementById('turtleOverlay');
+  if(ov)ov.style.display='none';
+}
+function showTurtleOverlay(ops,turtles){
+  const ov=document.getElementById('turtleOverlay');
+  const panel=document.getElementById('gamePanel');
+  const cv=document.getElementById('turtleCanvas');
+  ov.style.display='flex';
+  const pw=panel.clientWidth, ph=panel.clientHeight;
+  const cw=Math.floor(Math.min(pw*0.92,900)), ch=Math.floor(Math.min(ph*0.88,650));
+  cv.width=cw;cv.height=ch;
+  cv.style.width=cw+'px';cv.style.height=ch+'px';
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cw,ch);
+  ctx.fillStyle='rgba(3,10,3,0.9)';ctx.fillRect(0,0,cw,ch);
+
+  // 그림이 캔버스를 벗어나지 않도록 좌표 범위에 맞춰 스케일 계산
+  let maxAbs=1;
+  ops.forEach(op=>{
+    if(op.type==='line'){maxAbs=Math.max(maxAbs,Math.abs(op.x1),Math.abs(op.y1),Math.abs(op.x2),Math.abs(op.y2));}
+    else if(op.type==='fill'){op.points.forEach(p=>{maxAbs=Math.max(maxAbs,Math.abs(p[0]),Math.abs(p[1]));});}
+    else if(op.type==='dot'||op.type==='text'){maxAbs=Math.max(maxAbs,Math.abs(op.x),Math.abs(op.y));}
+  });
+  turtles.forEach(t=>{maxAbs=Math.max(maxAbs,Math.abs(t.x),Math.abs(t.y));});
+  const scale=Math.min((cw/2-30)/maxAbs,(ch/2-30)/maxAbs,20);
+  const toCX=x=>cw/2+x*scale, toCY=y=>ch/2-y*scale;
+
+  function drawOp(op){
+    if(op.type==='line'){
+      ctx.strokeStyle=op.color||'#00ff41';ctx.lineWidth=Math.max(1,(op.width||2));
+      ctx.beginPath();ctx.moveTo(toCX(op.x1),toCY(op.y1));ctx.lineTo(toCX(op.x2),toCY(op.y2));ctx.stroke();
+    } else if(op.type==='fill'){
+      ctx.fillStyle=op.color||'#00ff41';ctx.beginPath();
+      op.points.forEach((p,idx)=>{const fx=toCX(p[0]),fy=toCY(p[1]);idx===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);});
+      ctx.closePath();ctx.fill();
+    } else if(op.type==='dot'){
+      ctx.fillStyle=op.color||'#00ff41';ctx.beginPath();ctx.arc(toCX(op.x),toCY(op.y),Math.max(1,op.r*scale/10),0,Math.PI*2);ctx.fill();
+    } else if(op.type==='text'){
+      ctx.fillStyle=op.color||'#00ff41';ctx.font='13px Courier New';ctx.fillText(op.text,toCX(op.x),toCY(op.y));
+    }
+  }
+  function drawTurtles(){
+    turtles.forEach(t=>{
+      if(!t.visible)return;
+      const cx=toCX(t.x),cy=toCY(t.y);const rad=-t.heading*Math.PI/180;
+      const size=10;
+      ctx.save();ctx.translate(cx,cy);ctx.rotate(rad);
+      ctx.fillStyle=t.penColor||'#00ff41';
+      ctx.beginPath();ctx.moveTo(size,0);ctx.lineTo(-size*0.7,size*0.6);ctx.lineTo(-size*0.7,-size*0.6);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+      ctx.restore();
+    });
+  }
+  // 순서대로 살짝씩 그려서 그리는 느낌을 냄
+  let idx=0;
+  function step(){
+    const batch=Math.max(1,Math.ceil(ops.length/60));
+    for(let k=0;k<batch&&idx<ops.length;k++,idx++)drawOp(ops[idx]);
+    if(idx<ops.length){requestAnimationFrame(step);}
+    else drawTurtles();
+  }
+  if(ops.length)step();else drawTurtles();
 }
 
 // ─── Examples ───────────────────────────
@@ -3318,30 +3542,94 @@ function blockToEditor(){codeArea.value=blocksToCode();updateLineNums();sw('edit
 //  AI CHAT
 // ═══════════════════════════════════════════
 let aiHist=[];
-const SYS=`당신은 친절한 Python 전문 튜터 AI입니다.
+const SYS=`당신은 친절한 Python 전문 튜터 AI입니다. 이 화면의 "에디터" 탭에는 자체 제작한 미니 파이썬 실행기가 있고, 사용자가 당신이 준 코드를 그대로 복사해서 실행 버튼을 누릅니다. 그러니 아래 지원 범위 안에서만 코드를 작성하세요.
 - 한국어로 답변하세요
 - 코드 예제를 항상 포함하세요
 - 초보자도 이해할 수 있게 쉽게 설명하세요
 - 질문에 제한 없이 무엇이든 답변하세요
-- 코드는 \`\`\`python ... \`\`\` 형식으로 작성하세요
-- 친근하고 격려하는 말투를 사용하세요`;
+- 코드는 \`\`\`python ... \`\`\` 형식으로 작성하세요 (사용자가 "에디터에 넣기" 버튼으로 바로 실행할 수 있어요)
+- 친근하고 격려하는 말투를 사용하세요
 
-// API 키 관리 (더미 - 내장 API 사용)
-let _apiKey = 'builtin';
-function saveApiKey(){}
-function toggleApiKeyVis(){}
-function getApiKey(){return 'builtin';}
+[이 실행기가 지원하는 문법]
+- 변수, 연산자, f-string, if/elif/else, for ... in range()/리스트, while, def 함수, return
+- 리스트/딕셔너리와 주요 메서드(append, pop, sort, keys, values, items 등)
+- 내장 함수: print, len, range, str, int, float, list, dict, input, sorted, enumerate, zip, min, max, sum 등
+- math 모듈: math.sqrt(), math.pi, math.sin(), math.cos(), math.floor(), math.ceil(), math.pow() 등 (import math 후 사용)
+- random 모듈: random.randint(a,b), random.random(), random.choice(list), random.shuffle(list) (import random 후 사용)
+- turtle 그래픽: import turtle 후 t = turtle.Turtle() 형태로 만들고 t.forward(100), t.backward(50), t.right(90), t.left(90), t.penup(), t.pendown(), t.goto(x,y), t.circle(r), t.color('red'), t.pencolor(), t.fillcolor(), t.begin_fill(), t.end_fill(), t.pensize(n), t.speed(n), t.write('text'), t.home(), t.hideturtle() 등을 사용하세요. 실행하면 게임 화면 위에 반투명 오버레이와 함께 거북이 그림이 나타납니다. for 반복문과 함께 별, 다각형, 나선 모양 그리기 예제를 즐겨 추천하세요.
+- 지원하지 않는 것: numpy/pandas 같은 외부 라이브러리, class(클래스), try/except, 복잡한 컴프리헨션. 이런 게 필요하면 더 쉬운 대안으로 안내하세요.`;
+
+// AI 엔진: 'claude'(내장) / 'gemini'(내 무료 키) / 'openrouter'(내 무료 키)
+let aiEngine='claude';
+let _geminiKey='';
+let _openrouterKey='';
+let _openrouterModel='openrouter/free';
+function setAiEngine(name){
+  aiEngine=name;
+  document.getElementById('engineBtnClaude').classList.toggle('run',name==='claude');
+  document.getElementById('engineBtnGemini').classList.toggle('run',name==='gemini');
+  document.getElementById('engineBtnOpenrouter').classList.toggle('run',name==='openrouter');
+  document.getElementById('geminiKeyWrap').style.display=(name==='gemini')?'flex':'none';
+  document.getElementById('openrouterKeyWrap').style.display=(name==='openrouter')?'flex':'none';
+  const st=document.getElementById('engineStatus');
+  if(name==='gemini')st.textContent=_geminiKey?'(Gemini 키 연결됨)':'(Gemini 키를 아래에 입력하세요)';
+  else if(name==='openrouter')st.textContent=_openrouterKey?'(OpenRouter 키 연결됨: '+_openrouterModel+')':'(OpenRouter 키를 아래에 입력하세요)';
+  else st.textContent='(이 채팅창이 계속 막히면 위 "내 Gemini/OpenRouter 키"로 바꿔보세요)';
+}
+function saveGeminiKey(){
+  const v=document.getElementById('geminiKeyInput').value.trim();
+  if(!v){addAiMsg('키를 먼저 입력해주세요.','sys');return;}
+  _geminiKey=v;
+  setAiEngine('gemini');
+  addAiMsg('✅ Gemini 키가 저장됐어요 (새로고침하면 다시 입력해야 해요). 이제 질문해보세요!','sys');
+}
+function saveOpenrouterKey(){
+  const v=document.getElementById('openrouterKeyInput').value.trim();
+  const m=document.getElementById('openrouterModelInput').value.trim();
+  if(!v){addAiMsg('키를 먼저 입력해주세요.','sys');return;}
+  _openrouterKey=v;
+  _openrouterModel=m||'openrouter/free';
+  setAiEngine('openrouter');
+  addAiMsg('✅ OpenRouter 키가 저장됐어요 (새로고침하면 다시 입력해야 해요). 이제 질문해보세요!','sys');
+}
+setAiEngine('claude');
 
 document.getElementById('aiInput').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAi();}
 });
 function aiQ(q){document.getElementById('aiInput').value=q;sendAi();}
 
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+let aiCodeBlocks=[];
+// 봇 응답 안의 ```python ... ``` 코드블록을 추출해서 "에디터에 넣고 실행" 버튼을 붙여줌
+function renderBotHtml(text){
+  const re=/```(?:python)?\n?([\s\S]*?)```/g;
+  let out='',last=0,m;
+  while((m=re.exec(text))){
+    out+=escHtml(text.slice(last,m.index));
+    const code=m[1].replace(/\n$/,'');
+    const idx=aiCodeBlocks.push(code)-1;
+    out+='<div class="aicode"><pre>'+escHtml(code)+'</pre>'
+       +'<button class="btn run aicode-btn" onclick="useAiCode('+idx+')">▶ 에디터에 넣고 실행</button></div>';
+    last=re.lastIndex;
+  }
+  out+=escHtml(text.slice(last));
+  return out;
+}
+function useAiCode(idx){
+  const code=aiCodeBlocks[idx];if(code===undefined)return;
+  codeArea.value=code;updateLineNums();sw('editor');runCode();
+}
+
 function addAiMsg(text,role){
   const log=document.getElementById('aiLog');
-  const d=document.createElement('div');d.className='amsg '+role;d.textContent=text;
+  const d=document.createElement('div');d.className='amsg '+role;
+  if(role==='bot')d.innerHTML=renderBotHtml(text);
+  else d.textContent=text;
   log.appendChild(d);log.scrollTop=log.scrollHeight;return d;
 }
+
 async function sendAi(){
   const inp=document.getElementById('aiInput');
   const text=inp.value.trim();if(!text)return;
@@ -3350,27 +3638,52 @@ async function sendAi(){
   aiHist.push({role:'user',content:text});
   const th=addAiMsg('💭 답변 생성 중...','thinking');
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,system:SYS,messages:aiHist})
-    });
-    const data=await r.json();
-    th.remove();
-    if(data.error){
-      addAiMsg('⚠️ AI 오류: '+data.error.message,'bot');
-      return;
+    let reply;
+    if(aiEngine==='gemini'){
+      if(!_geminiKey){th.remove();addAiMsg('⚠️ 먼저 위에서 Gemini 키를 저장해주세요.','bot');return;}
+      const contents=aiHist.map(h=>({role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}));
+      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(_geminiKey),{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({system_instruction:{parts:[{text:SYS}]},contents})
+      });
+      const data=await r.json();
+      if(data.error)throw new Error(data.error.message||'Gemini 오류');
+      reply=data.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'[응답 없음]';
+    } else if(aiEngine==='openrouter'){
+      if(!_openrouterKey){th.remove();addAiMsg('⚠️ 먼저 위에서 OpenRouter 키를 저장해주세요.','bot');return;}
+      const messages=[{role:'system',content:SYS},...aiHist.map(h=>({role:h.role,content:h.content}))];
+      const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+_openrouterKey
+        },
+        body:JSON.stringify({model:_openrouterModel,messages})
+      });
+      const data=await r.json();
+      if(data.error)throw new Error(data.error.message||'OpenRouter 오류');
+      reply=data.choices?.[0]?.message?.content||'[응답 없음]';
+    } else {
+      const r=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,system:SYS,messages:aiHist})
+      });
+      const data=await r.json();
+      if(data.error)throw new Error(data.error.message||'AI 오류');
+      reply=data.content?.[0]?.text||'[응답 없음]';
     }
-    const reply=data.content?.[0]?.text||'[응답 없음]';
+    th.remove();
     aiHist.push({role:'assistant',content:reply});
     addAiMsg(reply,'bot');
   }catch(e){
     th.remove();
-    addAiMsg('⚠️ 연결 오류: '+e.message,'bot');
+    const hint = aiEngine==='claude' ? ' (이 페이지가 Claude 환경 밖에서 열려서 막힌 것일 수 있어요 — 위에서 "내 Gemini 키"로 바꿔보세요)' : '';
+    addAiMsg('⚠️ 연결 오류: '+e.message+hint,'bot');
   }
 }
 function clearAi(){aiHist=[];document.getElementById('aiLog').innerHTML='<div class="amsg sys">대화가 초기화되었습니다.</div>';}
